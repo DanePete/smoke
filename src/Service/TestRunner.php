@@ -58,7 +58,9 @@ final class TestRunner {
     ];
 
     if ($suite) {
-      $args[] = 'suites/' . $suite . '.spec.ts';
+      // Suite IDs use underscores (core_pages) but filenames use dashes (core-pages.spec.ts).
+      $suiteFile = str_replace('_', '-', $suite);
+      $args[] = 'suites/' . $suiteFile . '.spec.ts';
     }
 
     $process = new Process($args, $playwrightDir);
