@@ -261,7 +261,7 @@ YAML;
           foreach ($displays as $display) {
             if (($display['display_plugin'] ?? '') === 'page') {
               $path = $display['display_options']['path'] ?? '';
-              if ($path && stripos($path, 'search') !== FALSE) {
+              if ($path && stripos($path, 'search') !== FALSE && stripos($path, 'admin') === FALSE) {
                 $searchPath = '/' . ltrim($path, '/');
                 break 2;
               }

@@ -56,7 +56,16 @@ final class SmokeSuiteCommand extends DrushCommands {
     $this->io()->text('  ───────────────────────────────────────');
     $this->io()->newLine();
 
+    // Spinner animation while tests run.
+    $spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    $output = $this->output();
+    for ($i = 0; $i < 4; $i++) {
+      $output->write("  <fg=cyan>{$spinFrames[$i % 10]}</> Running...\r");
+      usleep(150_000);
+    }
+
     $results = $this->testRunner->run($suite);
+    $output->write("\033[2K");
     $suiteData = $results['suites'][$suite] ?? NULL;
 
     if (!$suiteData) {
