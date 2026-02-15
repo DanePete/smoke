@@ -144,6 +144,22 @@ final class SmokeSuiteCommand extends DrushCommands {
       $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
     }
 
+    // Remote explanation for this suite.
+    $target = $options['target'] ?? '';
+    if ($target) {
+      $skippedReason = match ($suite) {
+        'auth' => 'smoke_bot login tests auto-skip (no test user on remote)',
+        'health' => 'Admin checks (status report, cron, dblog) auto-skip (no smoke_bot on remote)',
+        'content' => 'Content creation auto-skips (no smoke_bot on remote)',
+        'webform' => 'Tries to load smoke_test form — skips on 404. Deploy config to enable.',
+        default => '',
+      };
+      if ($skippedReason) {
+        $this->io()->newLine();
+        $this->io()->text("  <fg=cyan>Remote note:</> {$skippedReason}");
+      }
+    }
+
     $this->io()->newLine();
   }
 

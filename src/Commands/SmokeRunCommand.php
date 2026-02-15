@@ -326,6 +326,19 @@ final class SmokeRunCommand extends DrushCommands {
       $this->io()->text('  No tests ran.');
     }
 
+    // Remote explanation.
+    if ($targetUrl) {
+      $this->io()->newLine();
+      $this->io()->text('  <fg=cyan;options=bold>Remote test notes:</>');
+      $this->io()->text('  <fg=gray>Ran normally:</>     Core Pages, Commerce, Search, Accessibility, Health (assets)');
+      $this->io()->text('  <fg=gray>Auto-skipped:</>     Auth (login), Health (admin/cron/dblog), Content (no smoke_bot)');
+      $this->io()->text('  <fg=gray>Webform:</>          Tried to load — skips on 404 (deploy config to enable)');
+      $this->io()->text('  <fg=gray>Sitemap:</>          Only if simple_sitemap or xmlsitemap is installed');
+      $this->io()->newLine();
+      $this->io()->text('  <fg=gray>To enable webform on remote: export config locally, deploy the</>');
+      $this->io()->text('  <fg=gray>webform.webform.smoke_test.yml, and import config on the remote.</>');
+    }
+
     // Links.
     $baseUrl = $targetUrl ?: (getenv('DDEV_PRIMARY_URL') ?: '');
     if ($baseUrl) {

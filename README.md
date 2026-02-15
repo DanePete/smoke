@@ -114,7 +114,28 @@ Or test a single suite:
 ddev drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io
 ```
 
-When using `--target`, tests run from your local DDEV Playwright install against the remote URL. Auth-dependent tests (smoke_bot login, admin status report, dblog) automatically skip since `smoke_bot` doesn't exist on the remote server. Anonymous tests (page loads, JS errors, broken images, CSS/JS assets, cache headers) run normally.
+When using `--target`, tests run from your local DDEV Playwright install against the remote URL.
+
+#### What runs on remote vs. what skips
+
+| Behaviour | Suites / Tests | Why |
+|-----------|---------------|-----|
+| **Runs normally** | Core Pages (all 8), Commerce, Search, Accessibility, Health (CSS/JS assets, login page check) | These are anonymous — no login required |
+| **Auto-skips** | Auth (invalid login, smoke_bot login), Health (admin status, cron, dblog), Content (create/delete node) | These need `smoke_bot` which only exists locally |
+| **Tries first, skips on 404** | Webform (smoke_test form) | The form is auto-created locally; if you deploy the config to Pantheon it will run there too |
+| **Skips if module missing** | Sitemap | Only runs when `simple_sitemap` or `xmlsitemap` is installed |
+
+#### Making webform tests work on remote
+
+The `smoke_test` webform is auto-created in your local DDEV environment. By default it won't exist on Pantheon. The test is smart about this — it tries to load the form and gracefully skips if it gets a 404.
+
+To make webform tests run on Pantheon too:
+
+1. Export config locally: `ddev drush config:export -y`
+2. Commit the exported `webform.webform.smoke_test.yml` in your `config/sync` directory
+3. Deploy to Pantheon and import config: `drush config:import -y`
+
+Once the `smoke_test` form exists on the remote, webform tests will automatically start passing there — no code changes needed.
 
 ### List detected suites
 
