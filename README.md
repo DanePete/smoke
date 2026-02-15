@@ -30,10 +30,10 @@ Then install:
 ```bash
 ddev composer require drupal/smoke:dev-main
 ddev drush en smoke -y
-ddev drush smoke:setup
+bash web/modules/contrib/smoke/scripts/host-setup.sh
 ```
 
-The setup command will walk you through installing the DDEV Playwright addon if it's not already present.
+The setup script handles everything: installs the DDEV Playwright addon, fixes known Docker build issues, installs browsers, generates test config, and verifies the setup. One command.
 
 ## Usage
 

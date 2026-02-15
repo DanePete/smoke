@@ -62,24 +62,16 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Lullabot/ddev-playwright already installed.');
     }
     else {
-      $this->io()->text('    Installing Lullabot/ddev-playwright addon...');
-      $this->io()->text('    <fg=yellow>This will restart DDEV and rebuild the container (1-3 min).</>');
+      $this->io()->newLine();
+      $this->io()->text('  <fg=yellow;options=bold>Playwright not installed yet.</>');
+      $this->io()->text('  Run this single command on your <options=bold>host machine</>:');
+      $this->io()->newLine();
 
-      // The addon install + restart must run on the host, not inside the container.
-      // Write a flag file so the host-side script knows what to do.
-      $flagFile = $projectRoot . '/.smoke-needs-addon';
-      file_put_contents($flagFile, 'install');
-
+      // Find the script path relative to project root.
+      $scriptPath = str_replace($projectRoot . '/', '', $modulePath . '/scripts/host-setup.sh');
+      $this->io()->text("    <options=bold>bash {$scriptPath}</>");
       $this->io()->newLine();
-      $this->io()->text('  <fg=yellow;options=bold>ACTION REQUIRED:</>');
-      $this->io()->text('  Run these commands on your <options=bold>host machine</> (not inside ddev ssh):');
-      $this->io()->newLine();
-      $this->io()->text('    <options=bold>ddev add-on get Lullabot/ddev-playwright</>');
-      $this->io()->text('    <options=bold>ddev install-playwright</>');
-      $this->io()->text('    <options=bold>ddev drush smoke:setup</>');
-      $this->io()->newLine();
-      $this->io()->text('  The first two commands install Playwright browsers into the DDEV container.');
-      $this->io()->text('  Then re-run <options=bold>drush smoke:setup</> to finish configuration.');
+      $this->io()->text('  This installs the DDEV addon, browsers, and finishes setup automatically.');
       $this->io()->newLine();
       return;
     }
