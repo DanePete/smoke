@@ -35,9 +35,9 @@ final class SmokeSetupCommand extends DrushCommands {
 
   #[CLI\Command(name: 'smoke:setup')]
   #[CLI\Help(description: 'Set up Playwright from scratch: DDEV addon, browsers, npm deps, test config.')]
-  #[CLI\Option(name: 'quiet', description: 'Suppress output (used by DDEV post-start hook).')]
-  public function setup(array $options = ['quiet' => FALSE]): void {
-    $quiet = (bool) $options['quiet'];
+  #[CLI\Option(name: 'silent', description: 'Suppress output (used by DDEV post-start hook).')]
+  public function setup(array $options = ['silent' => FALSE]): void {
+    $quiet = (bool) $options['silent'];
 
     if (!$quiet) {
       $this->io()->newLine();

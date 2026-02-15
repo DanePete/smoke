@@ -87,7 +87,7 @@ final class SmokeRunCommand extends DrushCommands {
           ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
         if (method_exists($setupCmd, 'setup')) {
           $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['quiet' => FALSE]);
+          $setupCmd->setup(['silent' => FALSE]);
         }
 
         // Re-check after setup.
@@ -219,7 +219,7 @@ final class SmokeRunCommand extends DrushCommands {
           ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
         if (method_exists($setupCmd, 'setup')) {
           $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['quiet' => FALSE]);
+          $setupCmd->setup(['silent' => FALSE]);
         }
       }
 

@@ -48,7 +48,7 @@ final class SmokeSuiteCommand extends DrushCommands {
           ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
         if (method_exists($setupCmd, 'setup')) {
           $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['quiet' => FALSE]);
+          $setupCmd->setup(['silent' => FALSE]);
         }
       }
 

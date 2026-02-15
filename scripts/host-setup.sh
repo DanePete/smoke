@@ -116,7 +116,7 @@ else
 # Regenerates Smoke test config on every ddev start/restart.
 hooks:
   post-start:
-    - exec: drush smoke:setup --quiet 2>/dev/null || true
+    - exec: drush smoke:setup --silent 2>/dev/null || true
 HOOKEOF
   ok "DDEV hook installed — config auto-regenerates on ddev start."
 fi
