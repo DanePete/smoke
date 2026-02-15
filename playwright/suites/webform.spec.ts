@@ -8,17 +8,28 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isSuiteEnabled, getSuiteConfig } from '../src/config-reader';
+import { isSuiteEnabled, getSuiteConfig, isRemote } from '../src/config-reader';
 import { fillField } from '../src/helpers';
 
 const enabled = isSuiteEnabled('webform');
 const config = getSuiteConfig('webform') as any;
 const form = config?.form;
+const remote = isRemote();
 
 test.describe('Webform', () => {
   test.skip(!enabled || !form, 'Webform module not enabled or smoke_test form missing.');
 
+  // On remote targets, still test that the form page loads, but skip submission
+  // since we don't control the remote data and smoke_test form may not exist.
+
+  test('smoke_test form page loads', async ({ page }) => {
+    const response = await page.goto(form.path);
+    expect(response?.status(), `${form.path} should return 200`).toBe(200);
+  });
+
   test('submit smoke_test form', async ({ page }) => {
+    test.skip(remote, 'Skipped on remote — smoke_test form may not exist there.');
+
     const response = await page.goto(form.path);
     expect(response?.status(), `${form.path} should return 200`).toBe(200);
 

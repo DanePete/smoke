@@ -33,10 +33,13 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Help(description: 'Smoke testing for Drupal — run tests or see status.')]
   #[CLI\Usage(name: 'drush smoke', description: 'Show status and available commands.')]
   #[CLI\Usage(name: 'drush smoke --run', description: 'Run all smoke tests.')]
+  #[CLI\Usage(name: 'drush smoke --run --target=https://test-mysite.pantheonsite.io', description: 'Run tests against a remote URL.')]
   #[CLI\Option(name: 'run', description: 'Run all enabled test suites.')]
-  public function run(array $options = ['run' => FALSE]): void {
+  #[CLI\Option(name: 'target', description: 'Remote URL to test against (e.g. https://test-mysite.pantheonsite.io). Auth/health suites auto-skip on remote.')]
+  public function run(array $options = ['run' => FALSE, 'target' => '']): void {
     if ($options['run']) {
-      $this->runTests();
+      $target = $options['target'] ?: NULL;
+      $this->runTests($target);
       return;
     }
 
@@ -142,6 +145,7 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->newLine();
     $this->io()->text('    <options=bold>ddev drush smoke --run</>         Run all tests');
     $this->io()->text('    <options=bold>ddev drush smoke:suite webform</>  Run one suite');
+    $this->io()->text('    <options=bold>ddev drush smoke --run --target=URL</>  Test a remote site');
     $this->io()->text('    <options=bold>ddev drush smoke:setup</>         Regenerate config');
     $this->io()->newLine();
 
@@ -151,9 +155,10 @@ final class SmokeRunCommand extends DrushCommands {
       $this->io()->newLine();
       $this->io()->text("    Dashboard:     {$baseUrl}/admin/reports/smoke");
       $this->io()->text("    Settings:      {$baseUrl}/admin/config/development/smoke");
+      $this->io()->text("    Status report: {$baseUrl}/admin/reports/status");
       $hasWebform = !empty($detected['webform']['detected']);
       if ($hasWebform) {
-        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
       }
       $this->io()->newLine();
     }
@@ -161,8 +166,11 @@ final class SmokeRunCommand extends DrushCommands {
 
   /**
    * Runs all tests and prints results.
+   *
+   * @param string|null $targetUrl
+   *   Optional remote URL to test against.
    */
-  private function runTests(): void {
+  private function runTests(?string $targetUrl = NULL): void {
     if (!$this->testRunner->isSetup()) {
       $this->io()->error('Playwright is not set up. Run: drush smoke:setup');
       return;
@@ -170,11 +178,17 @@ final class SmokeRunCommand extends DrushCommands {
 
     $siteConfig = \Drupal::config('system.site');
     $siteName = (string) $siteConfig->get('name');
-    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: 'unknown';
+    $displayUrl = $targetUrl ?: (getenv('DDEV_PRIMARY_URL') ?: 'unknown');
 
     $this->io()->newLine();
     $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
-    $this->io()->text("  <fg=gray>{$baseUrl}</>");
+    if ($targetUrl) {
+      $this->io()->text("  <fg=magenta;options=bold>REMOTE</>  {$displayUrl}");
+      $this->io()->text('  <fg=gray>Auth & health suites will auto-skip (no smoke_bot on remote).</>');
+    }
+    else {
+      $this->io()->text("  <fg=gray>{$displayUrl}</>");
+    }
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     $this->io()->newLine();
     $this->io()->text('  <fg=gray>        (  )</>');
@@ -184,14 +198,14 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text('  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>');
     $this->io()->newLine();
 
-    $results = $this->testRunner->run();
-    $this->printResults($results);
+    $results = $this->testRunner->run(NULL, $targetUrl);
+    $this->printResults($results, $targetUrl);
   }
 
   /**
    * Prints a formatted results report.
    */
-  private function printResults(array $results): void {
+  private function printResults(array $results, ?string $targetUrl = NULL): void {
     $suites = $results['suites'] ?? [];
     $summary = $results['summary'] ?? [];
 
@@ -257,12 +271,18 @@ final class SmokeRunCommand extends DrushCommands {
     }
 
     // Links.
-    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: '';
+    $baseUrl = $targetUrl ?: (getenv('DDEV_PRIMARY_URL') ?: '');
     if ($baseUrl) {
       $this->io()->newLine();
-      $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
-      if ($this->hasWebformResults($suites)) {
-        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+      if ($targetUrl) {
+        $this->io()->text("  <fg=gray>Tested:</>          {$targetUrl}");
+      }
+      $localUrl = getenv('DDEV_PRIMARY_URL') ?: '';
+      if ($localUrl) {
+        $this->io()->text("  <fg=gray>Dashboard:</>       {$localUrl}/admin/reports/smoke");
+      }
+      if (!$targetUrl && $this->hasWebformResults($suites)) {
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
       }
     }
 

@@ -46,6 +46,9 @@ final class ModuleDetector {
       $suites['search'] = $this->detectCoreSearch();
     }
 
+    // Health suite: admin status, cron, asset loading. Always available.
+    $suites['health'] = $this->detectHealth();
+
     return $suites;
   }
 
@@ -61,6 +64,7 @@ final class ModuleDetector {
       'webform' => 'Webform',
       'commerce' => 'Commerce',
       'search' => 'Search',
+      'health' => 'Health',
     ];
   }
 
@@ -76,6 +80,7 @@ final class ModuleDetector {
       'webform' => 'form',
       'commerce' => 'cart',
       'search' => 'search',
+      'health' => 'medical',
     ];
   }
 
@@ -291,6 +296,23 @@ YAML;
       'label' => 'Search',
       'description' => 'Search page loads and contains a search form.',
       'searchPath' => '/search',
+    ];
+  }
+
+  /**
+   * Detects health check capabilities.
+   *
+   * Always available — checks admin status report, cron, CSS/JS assets,
+   * recent PHP errors in dblog, and cache behaviour.
+   */
+  private function detectHealth(): array {
+    $hasDblog = $this->moduleHandler->moduleExists('dblog');
+
+    return [
+      'detected' => TRUE,
+      'label' => 'Health',
+      'description' => 'Admin status report, cron, CSS/JS assets, PHP error log, cache headers.',
+      'hasDblog' => $hasDblog,
     ];
   }
 

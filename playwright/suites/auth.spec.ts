@@ -4,11 +4,12 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isSuiteEnabled, getSuiteConfig } from '../src/config-reader';
+import { isSuiteEnabled, getSuiteConfig, isRemote } from '../src/config-reader';
 import { loginAsSmokeBot } from '../src/helpers';
 
 const enabled = isSuiteEnabled('auth');
 const authConfig = getSuiteConfig('auth');
+const remote = isRemote();
 
 test.describe('Authentication', () => {
   test.skip(!enabled, 'Authentication suite is disabled.');
@@ -26,6 +27,9 @@ test.describe('Authentication', () => {
   });
 
   test('invalid login shows error message', async ({ page }) => {
+    // Skip on remote — we don't want to trigger flood protection.
+    test.skip(remote, 'Skipped on remote targets.');
+
     await page.goto('/user/login');
     await page.getByLabel('Username').fill('nonexistent_smoke_user_xyz');
     await page.getByLabel('Password').fill('definitely_wrong_password');
@@ -37,6 +41,9 @@ test.describe('Authentication', () => {
   });
 
   test('smoke_bot can log in', async ({ page }) => {
+    // smoke_bot only exists on the local DDEV site.
+    test.skip(remote, 'smoke_bot does not exist on remote targets.');
+
     const user = (authConfig as any)?.testUser;
     const pass = (authConfig as any)?.testPassword;
 

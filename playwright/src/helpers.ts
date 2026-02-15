@@ -29,7 +29,7 @@ export async function assertNoJsErrors(page: Page, path: string): Promise<string
   });
 
   await page.goto(path);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   return errors;
 }

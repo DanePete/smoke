@@ -23,9 +23,13 @@ final class ConfigGenerator {
   /**
    * Generates the config array for Playwright.
    *
+   * @param string|null $targetUrl
+   *   Optional remote URL override. When set, tests run against this URL
+   *   instead of the local DDEV site, and auth-dependent suites are flagged.
+   *
    * @return array<string, mixed>
    */
-  public function generate(): array {
+  public function generate(?string $targetUrl = NULL): array {
     $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $customUrls = $settings->get('custom_urls') ?? [];
@@ -33,8 +37,9 @@ final class ConfigGenerator {
 
     $detected = $this->moduleDetector->detect();
 
-    // Build the base URL from the current request or DDEV env.
-    $baseUrl = $this->resolveBaseUrl();
+    // Use the target URL if provided, otherwise resolve from DDEV / request.
+    $isRemote = $targetUrl !== NULL && $targetUrl !== '';
+    $baseUrl = $isRemote ? rtrim($targetUrl, '/') : $this->resolveBaseUrl();
 
     // Get the site title.
     $siteConfig = $this->configFactory->get('system.site');
@@ -51,6 +56,7 @@ final class ConfigGenerator {
     }
 
     // Add auth credentials for test user.
+    // When targeting a remote URL, smoke_bot won't exist there.
     $botPassword = (string) $this->state->get('smoke.bot_password', '');
     if (!empty($suites['auth'])) {
       $suites['auth']['testUser'] = 'smoke_bot';
@@ -59,6 +65,7 @@ final class ConfigGenerator {
 
     return [
       'baseUrl' => $baseUrl,
+      'remote' => $isRemote,
       'siteTitle' => $siteTitle,
       'timeout' => $timeout,
       'customUrls' => $customUrls,
@@ -69,11 +76,14 @@ final class ConfigGenerator {
   /**
    * Writes the config to the module's playwright directory.
    *
+   * @param string|null $targetUrl
+   *   Optional remote URL override passed through to generate().
+   *
    * @return string
    *   Path to the written config file.
    */
-  public function writeConfig(): string {
-    $config = $this->generate();
+  public function writeConfig(?string $targetUrl = NULL): string {
+    $config = $this->generate($targetUrl);
     $modulePath = $this->getModulePath();
     $configPath = $modulePath . '/playwright/.smoke-config.json';
 

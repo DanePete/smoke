@@ -33,6 +33,7 @@ export interface SmokeSuiteConfig {
 
 export interface SmokeConfig {
   baseUrl: string;
+  remote: boolean;
   siteTitle: string;
   timeout: number;
   customUrls: string[];
@@ -75,4 +76,15 @@ export function isSuiteEnabled(suiteId: string): boolean {
 export function getSuiteConfig(suiteId: string): SmokeSuiteConfig | null {
   const config = loadConfig();
   return config.suites[suiteId] ?? null;
+}
+
+/**
+ * Returns true when testing a remote URL (not the local DDEV site).
+ *
+ * Auth-dependent tests should skip when remote, because smoke_bot
+ * doesn't exist on the remote server.
+ */
+export function isRemote(): boolean {
+  const config = loadConfig();
+  return !!config.remote;
 }

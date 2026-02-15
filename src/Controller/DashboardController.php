@@ -117,7 +117,7 @@ final class DashboardController extends ControllerBase {
         ];
         $links[] = [
           'label' => 'View submissions',
-          'url' => $baseUrl . '/admin/structure/webform/manage/smoke_test/submissions',
+          'url' => $baseUrl . '/admin/structure/webform/manage/smoke_test/results/submissions',
         ];
         break;
 
@@ -150,6 +150,17 @@ final class DashboardController extends ControllerBase {
         $links[] = [
           'label' => 'Homepage',
           'url' => $baseUrl . '/',
+        ];
+        break;
+
+      case 'health':
+        $links[] = [
+          'label' => 'Status report',
+          'url' => $baseUrl . '/admin/reports/status',
+        ];
+        $links[] = [
+          'label' => 'Recent log',
+          'url' => $baseUrl . '/admin/reports/dblog',
         ];
         break;
     }

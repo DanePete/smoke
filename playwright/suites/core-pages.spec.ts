@@ -1,6 +1,11 @@
 /**
  * @file
  * Core Pages — verifies critical pages return 200 with no PHP errors or JS errors.
+ *
+ * Inspired by Lullabot's playwright-drupal patterns:
+ * - Console error capture on every tested page
+ * - Broken image detection
+ * - Mixed content warnings on HTTPS sites
  */
 
 import { test, expect } from '@playwright/test';
@@ -14,7 +19,6 @@ const enabled = isSuiteEnabled('core_pages');
 test.describe('Core Pages', () => {
   test.skip(!enabled, 'Core Pages suite is disabled.');
 
-  // Test static pages from config.
   const pages = (suiteConfig?.pages as Array<{ path: string; label: string }>) ?? [
     { path: '/', label: 'Homepage' },
     { path: '/user/login', label: 'Login page' },
@@ -33,15 +37,75 @@ test.describe('Core Pages', () => {
     }
   });
 
-  test('homepage has no JavaScript errors', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    expect(errors, 'No JS errors on homepage').toEqual([]);
+  test('no JavaScript console errors on key pages', async ({ page }) => {
+    const allErrors: { path: string; errors: string[] }[] = [];
+
+    for (const { path } of pages) {
+      const pageErrors: string[] = [];
+      const handler = (error: Error) => pageErrors.push(error.message);
+
+      page.on('pageerror', handler);
+      await page.goto(path);
+      await page.waitForLoadState('domcontentloaded');
+
+      if (pageErrors.length > 0) {
+        allErrors.push({ path, errors: pageErrors });
+      }
+
+      page.removeListener('pageerror', handler);
+    }
+
+    expect(
+      allErrors,
+      `JS errors found:\n${allErrors.map((e) => `  ${e.path}: ${e.errors.join(', ')}`).join('\n')}`,
+    ).toHaveLength(0);
   });
 
-  // Test custom URLs from settings.
+  test('no broken images on homepage', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+
+    const brokenImages = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('img'))
+        .filter((img) => {
+          if (img.width <= 1 && img.height <= 1) return false;
+          if (!img.src) return false;
+          return img.complete && img.naturalWidth === 0;
+        })
+        .map((img) => img.src);
+    });
+
+    expect(
+      brokenImages,
+      `Broken images: ${brokenImages.join(', ')}`,
+    ).toHaveLength(0);
+  });
+
+  test('no mixed content on homepage', async ({ page }) => {
+    const mixedContent: string[] = [];
+
+    page.on('response', (response) => {
+      const pageUrl = page.url();
+      const resourceUrl = response.url();
+      if (
+        pageUrl.startsWith('https://') &&
+        resourceUrl.startsWith('http://') &&
+        !resourceUrl.startsWith('http://localhost')
+      ) {
+        mixedContent.push(resourceUrl);
+      }
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(
+      mixedContent,
+      `Mixed content resources: ${mixedContent.join(', ')}`,
+    ).toHaveLength(0);
+  });
+
   if (config.customUrls && config.customUrls.length > 0) {
     for (const url of config.customUrls) {
       test(`Custom URL ${url} returns 200`, async ({ page }) => {

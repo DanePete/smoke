@@ -30,10 +30,12 @@ final class SmokeSuiteCommand extends DrushCommands {
   }
 
   #[CLI\Command(name: 'smoke:suite')]
-  #[CLI\Argument(name: 'suite', description: 'Suite to run (core_pages, auth, webform, commerce, search).')]
+  #[CLI\Argument(name: 'suite', description: 'Suite to run (core_pages, auth, webform, commerce, search, health).')]
   #[CLI\Help(description: 'Run a single smoke test suite.')]
   #[CLI\Usage(name: 'drush smoke:suite webform', description: 'Run only the webform tests.')]
-  public function suite(string $suite): void {
+  #[CLI\Usage(name: 'drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io', description: 'Test a remote site.')]
+  #[CLI\Option(name: 'target', description: 'Remote URL to test against.')]
+  public function suite(string $suite, array $options = ['target' => '']): void {
     if (!$this->testRunner->isSetup()) {
       $this->io()->error('Playwright is not set up. Run: drush smoke:setup');
       return;
@@ -46,11 +48,15 @@ final class SmokeSuiteCommand extends DrushCommands {
       return;
     }
 
-    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: '';
+    $target = $options['target'] ?: NULL;
+    $baseUrl = $target ?: (getenv('DDEV_PRIMARY_URL') ?: '');
 
     $this->io()->newLine();
     $this->io()->text("  <options=bold>{$labels[$suite]}</>");
-    if ($baseUrl) {
+    if ($target) {
+      $this->io()->text("  <fg=magenta;options=bold>REMOTE</>  {$target}");
+    }
+    elseif ($baseUrl) {
       $this->io()->text("  <fg=gray>{$baseUrl}</>");
     }
     $this->io()->text('  ───────────────────────────────────────');
@@ -59,7 +65,7 @@ final class SmokeSuiteCommand extends DrushCommands {
     $this->io()->text('  <fg=cyan>⠿</> Running...');
     $this->io()->newLine();
 
-    $results = $this->testRunner->run($suite);
+    $results = $this->testRunner->run($suite, $target);
     $suiteData = $results['suites'][$suite] ?? NULL;
 
     if (!$suiteData) {
@@ -96,7 +102,7 @@ final class SmokeSuiteCommand extends DrushCommands {
       $this->io()->newLine();
       if ($suite === 'webform') {
         $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/smoke_test");
-        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
       }
       elseif ($suite === 'auth') {
         $this->io()->text("  <fg=gray>Login page:</>      {$baseUrl}/user/login");
@@ -104,6 +110,10 @@ final class SmokeSuiteCommand extends DrushCommands {
       elseif ($suite === 'commerce') {
         $this->io()->text("  <fg=gray>Products:</>        {$baseUrl}/admin/commerce/products");
         $this->io()->text("  <fg=gray>Orders:</>          {$baseUrl}/admin/commerce/orders");
+      }
+      elseif ($suite === 'health') {
+        $this->io()->text("  <fg=gray>Status report:</>   {$baseUrl}/admin/reports/status");
+        $this->io()->text("  <fg=gray>Recent log:</>      {$baseUrl}/admin/reports/dblog");
       }
       $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
     }

@@ -93,7 +93,25 @@ ddev drush smoke:suite auth
 ddev drush smoke:suite webform
 ddev drush smoke:suite commerce
 ddev drush smoke:suite search
+ddev drush smoke:suite health
 ```
+
+### Test a remote site (post-deploy)
+
+After deploying to Pantheon (or any remote host), run the same tests against the live URL:
+
+```bash
+ddev drush smoke --run --target=https://test-mysite.pantheonsite.io
+ddev drush smoke --run --target=https://live-mysite.pantheonsite.io
+```
+
+Or test a single suite:
+
+```bash
+ddev drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io
+```
+
+When using `--target`, tests run from your local DDEV Playwright install against the remote URL. Auth-dependent tests (smoke_bot login, admin status report, dblog) automatically skip since `smoke_bot` doesn't exist on the remote server. Anonymous tests (page loads, JS errors, broken images, CSS/JS assets, cache headers) run normally.
 
 ### List detected suites
 
@@ -133,7 +151,9 @@ Access requires the `administer smoke tests` permission.
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `drush smoke:run` | `drush smoke` | Run all enabled smoke test suites |
-| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`) |
+| `drush smoke:run --target=URL` | `drush smoke --run --target=URL` | Run tests against a remote site |
+| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`, `health`) |
+| `drush smoke:suite {id} --target=URL` | — | Run one suite against a remote site |
 | `drush smoke:list` | — | Show detected suites, enabled status, and last results |
 | `drush smoke:setup` | — | Install dependencies, generate config, verify test user |
 
@@ -143,11 +163,12 @@ Access requires the `administer smoke tests` permission.
 
 | Suite | Triggers When | What's Checked |
 |-------|---------------|----------------|
-| **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JavaScript errors |
+| **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JS console errors, no broken images, no mixed content |
 | **Authentication** | Always | Login form renders, invalid credentials show error, `smoke_bot` can log in and reach the profile page, password reset page exists |
 | **Webform** | `webform` module enabled | Auto-creates a `smoke_test` form, fills all fields, submits, and confirms success |
 | **Commerce** | `commerce` module enabled | Product catalog pages load, cart endpoint responds, checkout endpoint responds, store exists |
 | **Search** | `search_api` or `search` module enabled | Search page loads, search form is present on the page |
+| **Health** | Always | Admin status report has no errors, cron has run recently, CSS/JS assets load without 404s, no PHP errors in dblog, login page cache headers correct |
 
 ### Auto-detection
 
@@ -172,6 +193,7 @@ suites:
   webform: true
   commerce: true
   search: true
+  health: true
 custom_urls: []
 timeout: 10000
 ```
@@ -403,7 +425,8 @@ thronedigital/smoke
 │       ├── auth.spec.ts               # Authentication flow
 │       ├── webform.spec.ts            # Webform render, submit, validation
 │       ├── commerce.spec.ts           # Commerce catalog, cart, checkout
-│       └── search.spec.ts             # Search page and form
+│       ├── search.spec.ts             # Search page and form
+│       └── health.spec.ts             # Admin status, cron, assets, dblog
 ├── scripts/
 │   └── host-setup.sh                  # One-command host-side setup
 ├── templates/

@@ -34,13 +34,15 @@ final class TestRunner {
    *
    * @param string|null $suite
    *   Optional single suite to run.
+   * @param string|null $targetUrl
+   *   Optional remote URL to test against instead of the local DDEV site.
    *
    * @return array<string, mixed>
    *   Parsed test results.
    */
-  public function run(?string $suite = NULL): array {
-    // Write fresh config for Playwright.
-    $this->configGenerator->writeConfig();
+  public function run(?string $suite = NULL, ?string $targetUrl = NULL): array {
+    // Write fresh config for Playwright (with optional remote URL override).
+    $this->configGenerator->writeConfig($targetUrl);
 
     $playwrightDir = $this->getPlaywrightDir();
     $resultsFile = $playwrightDir . '/results.json';
@@ -252,6 +254,9 @@ final class TestRunner {
       'search' => 'search',
       'Search' => 'search',
       'search.spec.ts' => 'search',
+      'health' => 'health',
+      'Health' => 'health',
+      'health.spec.ts' => 'health',
     ];
     return $map[$title] ?? NULL;
   }
