@@ -145,7 +145,7 @@ Access requires the `administer smoke tests` permission.
 |-------|---------------|----------------|
 | **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JavaScript errors |
 | **Authentication** | Always | Login form renders, invalid credentials show error, `smoke_bot` can log in and reach the profile page, password reset page exists |
-| **Webform** | `webform` module enabled | Each open webform loads at `/webform/{id}`, renders all required fields, validates required fields on empty submit, submits successfully with valid data |
+| **Webform** | `webform` module enabled | Auto-creates a `smoke_test` form, fills all fields, submits, and confirms success |
 | **Commerce** | `commerce` module enabled | Product catalog pages load, cart endpoint responds, checkout endpoint responds, store exists |
 | **Search** | `search_api` or `search` module enabled | Search page loads, search form is present on the page |
 
@@ -155,7 +155,7 @@ Suites are **automatically detected** based on installed modules. If Commerce is
 
 ### Webform auto-creation
 
-When the Webform module is detected, Smoke automatically creates a `smoke_test` webform with Name, Email, and Message fields. This ensures there's always a known, predictable form to test against. It also detects and tests all other open webforms on the site.
+When the Webform module is detected, Smoke automatically creates a `smoke_test` webform with Name, Email, and Message fields. This ensures there's always a known, predictable form to test against.
 
 ---
 
@@ -212,6 +212,142 @@ custom_urls:
 Each custom URL is checked for:
 - HTTP 200 response
 - No PHP fatal errors in the response body
+
+---
+
+## Adding Custom Tests
+
+Smoke ships with built-in suites, but you can easily add your own. Tests are standard [Playwright spec files](https://playwright.dev/docs/writing-tests) in TypeScript.
+
+### Quick start: add a spec file
+
+Create a new `.spec.ts` file in `playwright/suites/` inside the module:
+
+```bash
+# Find where the module lives
+ddev drush eval "echo DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke');"
+
+# Create your test file
+vim web/modules/contrib/smoke/playwright/suites/my-pages.spec.ts
+```
+
+### Example: test specific pages
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { assertHealthyPage } from '../src/helpers';
+
+test.describe('My Pages', () => {
+
+  test('/about returns 200', async ({ page }) => {
+    await assertHealthyPage(page, '/about');
+  });
+
+  test('/pricing returns 200', async ({ page }) => {
+    await assertHealthyPage(page, '/pricing');
+  });
+
+  test('/contact has a form', async ({ page }) => {
+    await page.goto('/contact');
+    await expect(page.locator('form')).toBeVisible();
+  });
+
+});
+```
+
+### Example: test an authenticated page
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { loadConfig } from '../src/config-reader';
+import { loginAsSmokeBot } from '../src/helpers';
+
+const config = loadConfig();
+const auth = config.suites.auth;
+
+test.describe('Member Pages', () => {
+
+  test('dashboard requires login', async ({ page }) => {
+    const response = await page.goto('/dashboard');
+    // Should redirect to login or return 403
+    expect([200, 403]).toContain(response?.status());
+  });
+
+  test('smoke_bot can access dashboard', async ({ page }) => {
+    await loginAsSmokeBot(
+      page,
+      (auth as any).testUser,
+      (auth as any).testPassword,
+    );
+    const response = await page.goto('/dashboard');
+    expect(response?.status()).toBe(200);
+  });
+
+});
+```
+
+### Example: conditional test (only if a module is enabled)
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { isSuiteEnabled } from '../src/config-reader';
+
+// Re-use an existing suite flag, or check your own way
+const hasWebform = isSuiteEnabled('webform');
+
+test.describe('Contact Flow', () => {
+  test.skip(!hasWebform, 'Webform not installed.');
+
+  test('contact page has phone field', async ({ page }) => {
+    await page.goto('/webform/contact_us');
+    await expect(page.getByLabel('Phone Number')).toBeVisible();
+  });
+});
+```
+
+### Available helpers
+
+These are imported from `../src/helpers`:
+
+| Helper | What it does |
+|--------|-------------|
+| `assertHealthyPage(page, path)` | Navigates to the path, asserts HTTP 200, checks for PHP fatal errors |
+| `assertNoJsErrors(page, path)` | Navigates and captures any JavaScript console errors |
+| `loginAsSmokeBot(page, user, pass)` | Logs into Drupal with the smoke_bot test user |
+| `fillField(page, label, type)` | Fills a form field by label, using smart defaults based on type (email, tel, textarea, etc.) |
+
+### Available config readers
+
+These are imported from `../src/config-reader`:
+
+| Function | What it does |
+|----------|-------------|
+| `loadConfig()` | Returns the full config object (base URL, suites, timeout, etc.) |
+| `isSuiteEnabled(suiteId)` | Returns `true` if a suite is detected and enabled |
+| `getSuiteConfig(suiteId)` | Returns the config object for a specific suite |
+
+### Naming conventions
+
+- File: `playwright/suites/my-thing.spec.ts` (use dashes, not underscores)
+- Describe block: `test.describe('My Thing', () => { ... })`
+- Tests show up automatically — no registration needed
+
+### After adding tests
+
+Reinstall npm dependencies and run:
+
+```bash
+ddev drush smoke:setup    # Reinstalls dependencies, regenerates config
+ddev drush smoke --run    # Run all tests including your new ones
+```
+
+### Tips
+
+- Keep tests **fast**. Each test should be under 5 seconds. This is smoke testing, not QA.
+- Use `assertHealthyPage()` as your go-to — it checks HTTP 200 + no PHP fatals in one call.
+- Use `test.skip()` to conditionally skip tests that depend on specific modules or config.
+- Don't use `waitForLoadState('networkidle')` — it hangs on sites with analytics or long-polling.
+- `loadConfig().baseUrl` gives you the full site URL if you need it.
 
 ---
 
