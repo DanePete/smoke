@@ -9,6 +9,7 @@ use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Process\Process;
 
 /**
  * Runs a single smoke test suite by name.
@@ -44,12 +45,14 @@ final class SmokeSuiteCommand extends DrushCommands {
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
-        $setupCmd = \Drupal::service('class_resolver')
-          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
-        if (method_exists($setupCmd, 'setup')) {
-          $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['silent' => FALSE]);
-        }
+        $process = new \Symfony\Component\Process\Process(
+          ['drush', 'smoke:setup'],
+          $projectRoot,
+        );
+        $process->setTimeout(180);
+        $process->run(function ($type, $buffer): void {
+          $this->io()->write($buffer);
+        });
       }
 
       if (!$this->testRunner->isSetup()) {

@@ -82,13 +82,14 @@ final class SmokeRunCommand extends DrushCommands {
         $this->io()->text('  <fg=cyan;options=bold>AUTO-SETUP</>  First run detected — setting up...');
         $this->io()->newLine();
 
-        // Invoke smoke:setup programmatically.
-        $setupCmd = \Drupal::service('class_resolver')
-          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
-        if (method_exists($setupCmd, 'setup')) {
-          $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['silent' => FALSE]);
-        }
+        $process = new \Symfony\Component\Process\Process(
+          ['drush', 'smoke:setup'],
+          $projectRoot,
+        );
+        $process->setTimeout(180);
+        $process->run(function ($type, $buffer): void {
+          $this->io()->write($buffer);
+        });
 
         // Re-check after setup.
         if (!$this->testRunner->isSetup()) {
@@ -215,12 +216,14 @@ final class SmokeRunCommand extends DrushCommands {
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
-        $setupCmd = \Drupal::service('class_resolver')
-          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
-        if (method_exists($setupCmd, 'setup')) {
-          $setupCmd->setLogger($this->logger());
-          $setupCmd->setup(['silent' => FALSE]);
-        }
+        $process = new \Symfony\Component\Process\Process(
+          ['drush', 'smoke:setup'],
+          $projectRoot,
+        );
+        $process->setTimeout(180);
+        $process->run(function ($type, $buffer): void {
+          $this->io()->write($buffer);
+        });
       }
 
       if (!$this->testRunner->isSetup()) {
