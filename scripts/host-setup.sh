@@ -69,12 +69,43 @@ else
   warn "Dockerfile not found at $DOCKERFILE — skipping patch."
 fi
 
-# ── Step 3: Install Playwright browsers ──
-step "Installing Playwright browsers (this rebuilds the container, 1-3 min)..."
+# ── Step 3: Create Playwright stub for DDEV addon ──
+step "Preparing Playwright for DDEV..."
+SMOKE_PW_DIR=$(ddev exec drush eval "echo DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke') . '/playwright';" 2>/dev/null || echo "")
+
+if [ -z "$SMOKE_PW_DIR" ]; then
+  # Fallback: find it manually.
+  SMOKE_PW_DIR="web/modules/contrib/smoke/playwright"
+  if [ ! -d "$SMOKE_PW_DIR" ]; then
+    SMOKE_PW_DIR="web/modules/custom/smoke/playwright"
+  fi
+fi
+
+# The DDEV addon needs test/playwright/ with a package.json to install browsers.
+# Create a minimal stub that shares the same @playwright/test version.
+if [ ! -d "test/playwright" ]; then
+  mkdir -p test/playwright
+  cat > test/playwright/package.json <<'PKGJSON'
+{
+  "name": "smoke-playwright-stub",
+  "private": true,
+  "description": "Stub for ddev-playwright addon. Actual tests live in the smoke module.",
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}
+PKGJSON
+  ok "Created test/playwright stub for DDEV addon."
+else
+  ok "test/playwright already exists."
+fi
+
+# ── Step 4: Install Playwright browsers ──
+step "Installing Playwright browsers (rebuilds container, 1-3 min)..."
 ddev install-playwright
 ok "Browsers installed."
 
-# ── Step 4: Run Drush setup ──
+# ── Step 5: Run Drush setup ──
 step "Running drush smoke:setup..."
 echo ""
 ddev drush smoke:setup
