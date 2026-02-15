@@ -116,51 +116,52 @@ final class ModuleDetector {
    * it is created automatically so there's always a known form to test against.
    */
   private function detectWebform(): array {
-    $forms = [];
-
     try {
       $storage = $this->entityTypeManager->getStorage('webform');
 
       // Ensure the smoke_test webform exists.
       $this->ensureSmokeWebform($storage);
 
-      /** @var \Drupal\webform\WebformInterface[] $webforms */
-      $webforms = $storage->loadMultiple();
-
-      foreach ($webforms as $webform) {
-        if (!$webform->isOpen()) {
-          continue;
-        }
-
-        $elements = $webform->getElementsInitializedFlattenedAndHasValue();
-        $fields = [];
-        foreach ($elements as $key => $element) {
-          $fields[] = [
-            'key' => $key,
-            'type' => $element['#type'] ?? 'unknown',
-            'title' => (string) ($element['#title'] ?? $key),
-            'required' => !empty($element['#required']),
-          ];
-        }
-
-        $forms[] = [
-          'id' => $webform->id(),
-          'title' => (string) $webform->label(),
-          'path' => '/webform/' . $webform->id(),
-          'fields' => $fields,
+      /** @var \Drupal\webform\WebformInterface|null $webform */
+      $webform = $storage->load('smoke_test');
+      if (!$webform || !$webform->isOpen()) {
+        return [
+          'detected' => FALSE,
+          'label' => 'Webform',
+          'description' => 'Submits the smoke_test form and confirms it works.',
         ];
       }
+
+      $elements = $webform->getElementsInitializedFlattenedAndHasValue();
+      $fields = [];
+      foreach ($elements as $key => $element) {
+        $fields[] = [
+          'key' => $key,
+          'type' => $element['#type'] ?? 'unknown',
+          'title' => (string) ($element['#title'] ?? $key),
+          'required' => !empty($element['#required']),
+        ];
+      }
+
+      return [
+        'detected' => TRUE,
+        'label' => 'Webform',
+        'description' => 'Submits the smoke_test form and confirms it works.',
+        'form' => [
+          'id' => 'smoke_test',
+          'title' => 'Smoke Test',
+          'path' => '/webform/smoke_test',
+          'fields' => $fields,
+        ],
+      ];
     }
     catch (\Exception) {
-      // Webform module exists but entity type may not be available.
+      return [
+        'detected' => FALSE,
+        'label' => 'Webform',
+        'description' => 'Submits the smoke_test form and confirms it works.',
+      ];
     }
-
-    return [
-      'detected' => !empty($forms),
-      'label' => 'Webform',
-      'description' => 'Webforms load, render fields, submit successfully, and validate required fields.',
-      'forms' => $forms,
-    ];
   }
 
   /**
