@@ -1,81 +1,339 @@
 # Smoke
 
-Automated smoke testing for Drupal. One module, one command, full coverage.
+**Automated smoke testing for Drupal.** One module. One command. Full coverage.
 
-Smoke auto-detects what's installed on your site — webform, commerce, search API — and runs Playwright browser tests against it. Results show up in a clean admin dashboard or beautiful Drush CLI output.
+Smoke auto-detects what's installed on your Drupal site — Webform, Commerce, Search API — and runs [Playwright](https://playwright.dev) browser tests against it. Results show up in a clean admin dashboard or via Drush CLI.
+
+Built for support teams running Drupal on [DDEV](https://ddev.com).
+
+---
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Setup](#setup)
+- [Running Tests](#running-tests)
+- [Admin Dashboard](#admin-dashboard)
+- [Drush Commands](#drush-commands)
+- [What It Tests](#what-it-tests)
+- [Configuration](#configuration)
+- [Custom URLs](#custom-urls)
+- [After Module Updates](#after-module-updates)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [Uninstall](#uninstall)
+- [License](#license)
+
+---
 
 ## Requirements
 
-- Drupal 10 or 11
-- DDEV local development environment
-- [Lullabot/ddev-playwright](https://github.com/Lullabot/ddev-playwright) addon (installed automatically by `drush smoke:setup`)
+- **Drupal** 10 or 11
+- **DDEV** local development environment
+- **Composer** (managed via DDEV)
+
+The setup script automatically installs the [Lullabot/ddev-playwright](https://github.com/Lullabot/ddev-playwright) addon and Chromium browser inside the DDEV container. No manual browser installation needed.
+
+---
 
 ## Install
 
 ```bash
 ddev composer require thronedigital/smoke
 ddev drush en smoke -y
+```
+
+---
+
+## Setup
+
+After enabling the module, run the host setup script. This is the **one command** that does everything:
+
+```bash
 bash web/modules/contrib/smoke/scripts/host-setup.sh
 ```
 
-The setup script handles everything: installs the DDEV Playwright addon, fixes known Docker build issues, installs browsers, generates test config, and verifies the setup. One command.
+### What the setup script does:
 
-## Usage
+1. Detects (or installs) the DDEV Playwright addon
+2. Patches a known Docker build issue (expired Sury PHP GPG key)
+3. Installs Playwright browsers into the DDEV container (rebuilds container, ~1-3 min)
+4. Runs `drush smoke:setup` inside the container, which:
+   - Installs npm dependencies for the Playwright test suites
+   - **Generates the test configuration** — scans your site for installed modules, webforms, commerce stores, search pages, etc. and writes a JSON config file that Playwright reads
+   - Creates a `smoke_bot` test user and role for authentication tests
+   - Verifies all test suites are wired up
 
-### Drush (CLI)
+### Re-running setup
+
+If you install new modules (e.g. add Webform or Commerce) and want Smoke to detect them:
 
 ```bash
-# Run all smoke tests
-ddev drush smoke
-
-# List detected suites and their status
-ddev drush smoke:list
-
-# Run a single suite
-ddev drush smoke:suite webform
-ddev drush smoke:suite commerce
-ddev drush smoke:suite auth
+ddev drush smoke:setup
 ```
 
-### Admin Dashboard
+This regenerates the test config. You don't need the host script again unless you've removed the Playwright addon.
 
-Visit `/admin/reports/smoke` to see test results, run tests, and configure suites.
+---
 
-Settings at `/admin/config/development/smoke` to enable/disable suites and add custom URLs.
+## Running Tests
+
+### Run all tests
+
+```bash
+ddev drush smoke
+```
+
+### Run a specific suite
+
+```bash
+ddev drush smoke:suite core_pages
+ddev drush smoke:suite auth
+ddev drush smoke:suite webform
+ddev drush smoke:suite commerce
+ddev drush smoke:suite search
+```
+
+### List detected suites
+
+```bash
+ddev drush smoke:list
+```
+
+Shows which suites were detected, whether they're enabled, and their last status.
+
+---
+
+## Admin Dashboard
+
+### Results
+
+Visit **Reports > Smoke Tests** (`/admin/reports/smoke`) to:
+
+- See a summary of the last test run (passed / failed / skipped)
+- View per-suite results with individual test names and durations
+- Click **Run All Tests** or run individual suites from the UI
+- See failure details and error messages inline
+
+### Settings
+
+Visit **Configuration > Development > Smoke** (`/admin/config/development/smoke`) to:
+
+- Enable or disable individual test suites
+- Add custom URLs to test (see [Custom URLs](#custom-urls))
+- Adjust the per-test timeout
+
+Access requires the `administer smoke tests` permission.
+
+---
+
+## Drush Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `drush smoke:run` | `drush smoke` | Run all enabled smoke test suites |
+| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`) |
+| `drush smoke:list` | — | Show detected suites, enabled status, and last results |
+| `drush smoke:setup` | — | Install dependencies, generate config, verify test user |
+
+---
 
 ## What It Tests
 
-| Suite | Module | What's Checked |
-|-------|--------|----------------|
-| **Core Pages** | always | Homepage, login page return 200, no PHP errors, no JS errors |
-| **Authentication** | always | Login form works, invalid creds show errors, smoke_bot can log in |
-| **Webform** | `webform` | Auto-creates a test form, verifies render, submit, and validation |
-| **Commerce** | `commerce` | Product catalog, cart endpoint, checkout endpoint |
-| **Search** | `search_api` | Search page loads, search form is present |
+| Suite | Triggers When | What's Checked |
+|-------|---------------|----------------|
+| **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JavaScript errors |
+| **Authentication** | Always | Login form renders, invalid credentials show error, `smoke_bot` can log in and reach the profile page, password reset page exists |
+| **Webform** | `webform` module enabled | Each open webform loads at `/webform/{id}`, renders all required fields, validates required fields on empty submit, submits successfully with valid data |
+| **Commerce** | `commerce` module enabled | Product catalog pages load, cart endpoint responds, checkout endpoint responds, store exists |
+| **Search** | `search_api` or `search` module enabled | Search page loads, search form is present on the page |
 
-Suites are auto-detected. If a module isn't installed, its suite is skipped.
+### Auto-detection
 
-## How It Works
+Suites are **automatically detected** based on installed modules. If Commerce isn't installed, the Commerce suite is skipped entirely — no errors, no configuration needed.
 
-1. **ModuleDetector** scans your site for installed modules and testable features
-2. **ConfigGenerator** writes a JSON bridge file with everything Playwright needs
-3. **Playwright** reads the config and runs browser tests in Chromium
-4. **TestRunner** parses the JSON results back into Drupal
-5. Results are stored in Drupal state and displayed in the dashboard or CLI
+### Webform auto-creation
+
+When the Webform module is detected, Smoke automatically creates a `smoke_test` webform with Name, Email, and Message fields. This ensures there's always a known, predictable form to test against. It also detects and tests all other open webforms on the site.
+
+---
+
+## Configuration
+
+### Config file
+
+Smoke stores its settings in `smoke.settings`:
+
+```yaml
+suites:
+  core_pages: true
+  auth: true
+  webform: true
+  commerce: true
+  search: true
+custom_urls: []
+timeout: 10000
+```
+
+Edit via the admin UI at `/admin/config/development/smoke` or export/import with Drupal's config system.
+
+### Test timeout
+
+The `timeout` value (in milliseconds) controls how long each individual test waits before failing. Default is `10000` (10 seconds). For slow environments, increase to `20000` or `30000`.
+
+### Generated test config
+
+When you run `drush smoke:setup` or `drush smoke`, Smoke generates a `.smoke-config.json` file inside its `playwright/` directory. This JSON file contains:
+
+- The site's base URL (from `DDEV_PRIMARY_URL`)
+- Site title
+- All detected suites and their metadata (webform fields, commerce flags, search paths, etc.)
+- Auth credentials for the `smoke_bot` test user
+- Timeout settings
+
+Playwright reads this file at runtime. **You don't edit this file directly** — it's regenerated from Drupal's state on each setup or test run.
+
+---
 
 ## Custom URLs
 
-Add extra pages to test via the settings form or `smoke.settings` config:
+Add extra pages to test via the admin settings form or directly in config:
 
 ```yaml
-# In config/sync or via the admin UI
+# In config/sync or via /admin/config/development/smoke
 custom_urls:
   - /about
   - /pricing
   - /contact
+  - /products
 ```
 
-Each URL is checked for HTTP 200 and no PHP fatal errors.
+Each custom URL is checked for:
+- HTTP 200 response
+- No PHP fatal errors in the response body
+
+---
+
+## After Module Updates
+
+This is the primary use case Smoke was built for. After running `composer update` on contrib modules:
+
+```bash
+# Update contrib modules
+ddev composer update
+
+# Clear caches
+ddev drush cr
+
+# Run smoke tests to verify nothing broke
+ddev drush smoke
+```
+
+If you've added or removed modules (e.g. added `webform`), regenerate the config first:
+
+```bash
+ddev drush smoke:setup
+ddev drush smoke
+```
+
+---
+
+## Architecture
+
+```
+thronedigital/smoke
+├── src/
+│   ├── Controller/
+│   │   └── DashboardController.php   # Admin UI — results, run tests
+│   ├── Form/
+│   │   └── SettingsForm.php           # Config form — suites, URLs, timeout
+│   ├── Service/
+│   │   ├── ModuleDetector.php         # Scans site for testable features
+│   │   ├── ConfigGenerator.php        # Writes JSON bridge file for Playwright
+│   │   └── TestRunner.php             # Spawns Playwright, parses results
+│   └── Commands/
+│       ├── SmokeRunCommand.php        # drush smoke:run
+│       ├── SmokeSuiteCommand.php      # drush smoke:suite {id}
+│       ├── SmokeListCommand.php       # drush smoke:list
+│       └── SmokeSetupCommand.php      # drush smoke:setup
+├── playwright/
+│   ├── playwright.config.ts           # Playwright config — reads .smoke-config.json
+│   ├── src/
+│   │   ├── config-reader.ts           # Loads Drupal-generated JSON config
+│   │   └── helpers.ts                 # Shared helpers (login, assertions)
+│   └── suites/
+│       ├── core-pages.spec.ts         # Homepage, login, critical pages
+│       ├── auth.spec.ts               # Authentication flow
+│       ├── webform.spec.ts            # Webform render, submit, validation
+│       ├── commerce.spec.ts           # Commerce catalog, cart, checkout
+│       └── search.spec.ts             # Search page and form
+├── scripts/
+│   └── host-setup.sh                  # One-command host-side setup
+├── templates/
+│   └── smoke-dashboard.html.twig      # Admin dashboard template
+├── config/
+│   ├── install/smoke.settings.yml     # Default settings
+│   └── schema/smoke.schema.yml        # Config schema
+└── css/
+    └── dashboard.css                  # Dashboard styles
+```
+
+### Data flow
+
+```
+Drupal (PHP)                          Node (TypeScript)
+┌──────────────┐                      ┌──────────────────┐
+│ ModuleDetector│──detects modules──>  │                  │
+│              │                      │ .smoke-config.json│
+│ConfigGenerator│──writes config───>  │                  │
+└──────────────┘                      └────────┬─────────┘
+                                               │
+                                      ┌────────▼─────────┐
+                                      │   Playwright      │
+                                      │   (Chromium)      │
+                                      │   runs .spec.ts   │
+                                      └────────┬─────────┘
+                                               │
+┌──────────────┐                      ┌────────▼─────────┐
+│  TestRunner   │<──reads results───  │   results.json    │
+│              │                      │                  │
+│  Dashboard /  │                      └──────────────────┘
+│  Drush CLI    │
+└──────────────┘
+```
+
+---
+
+## Troubleshooting
+
+### Tests seem to hang
+
+Tests have a 10-second timeout per test. If many tests fail (e.g. wrong URLs), each one waits for the timeout before moving on. A full suite of 29 tests could take up to ~5 minutes if everything fails.
+
+Run a single suite to diagnose: `ddev drush smoke:suite core_pages`
+
+### "Playwright is not set up"
+
+Run the setup: `bash web/modules/contrib/smoke/scripts/host-setup.sh`
+
+### Docker build fails (expired GPG key)
+
+The host-setup script patches this automatically. If you're building manually, see the `scripts/host-setup.sh` for the Sury key fix.
+
+### Webform tests fail with 404
+
+Make sure webforms are accessible. Smoke uses the `/webform/{id}` path (Drupal's canonical route). If your forms use custom URL aliases, ensure the canonical path still works.
+
+### Config is stale after installing new modules
+
+Regenerate: `ddev drush smoke:setup`
+
+### smoke_bot can't log in
+
+The setup creates a `smoke_bot` user with a random password stored in Drupal state. If the user was deleted, re-run: `ddev drush smoke:setup`
+
+---
 
 ## Uninstall
 
@@ -84,7 +342,9 @@ ddev drush pmu smoke -y
 ddev composer remove thronedigital/smoke
 ```
 
-This removes the test user, role, and all stored results.
+This removes the `smoke_bot` user, the `smoke_tester` role, and all stored test results from Drupal state.
+
+---
 
 ## License
 
