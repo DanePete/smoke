@@ -10,15 +10,16 @@ if (existsSync(configPath)) {
 }
 
 const baseURL = smokeConfig.baseUrl || process.env.DDEV_PRIMARY_URL || 'https://localhost';
-const timeout = smokeConfig.timeout || 30_000;
+const timeout = smokeConfig.timeout || 10_000;
 
 export default defineConfig({
   testDir: './suites',
   timeout,
+  expect: { timeout: 5_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : 1,
+  retries: 0,
+  workers: 1,
 
   reporter: [
     ['json', { outputFile: 'results.json' }],

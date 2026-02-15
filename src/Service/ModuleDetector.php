@@ -146,7 +146,7 @@ final class ModuleDetector {
         $forms[] = [
           'id' => $webform->id(),
           'title' => (string) $webform->label(),
-          'path' => '/form/' . $webform->id(),
+          'path' => '/webform/' . $webform->id(),
           'fields' => $fields,
         ];
       }

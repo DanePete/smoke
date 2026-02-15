@@ -5,4 +5,4 @@ suites:
   commerce: true
   search: true
 custom_urls: []
-timeout: 30000
+timeout: 10000
