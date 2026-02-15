@@ -11,7 +11,7 @@ use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Runs all enabled smoke test suites.
+ * Main smoke command — landing page and test runner.
  */
 final class SmokeRunCommand extends DrushCommands {
 
@@ -30,15 +30,153 @@ final class SmokeRunCommand extends DrushCommands {
   }
 
   #[CLI\Command(name: 'smoke:run', aliases: ['smoke'])]
-  #[CLI\Help(description: 'Run all enabled smoke test suites.')]
-  #[CLI\Usage(name: 'drush smoke', description: 'Run all smoke tests.')]
-  public function run(): void {
+  #[CLI\Help(description: 'Smoke testing for Drupal — run tests or see status.')]
+  #[CLI\Usage(name: 'drush smoke', description: 'Show status and available commands.')]
+  #[CLI\Usage(name: 'drush smoke --run', description: 'Run all smoke tests.')]
+  #[CLI\Option(name: 'run', description: 'Run all enabled test suites.')]
+  public function run(array $options = ['run' => FALSE]): void {
+    if ($options['run']) {
+      $this->runTests();
+      return;
+    }
+
+    $this->showLanding();
+  }
+
+  /**
+   * Shows the landing page with status and commands.
+   */
+  private function showLanding(): void {
+    $siteConfig = \Drupal::config('system.site');
+    $siteName = (string) $siteConfig->get('name');
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: 'unknown';
+    $isSetup = $this->testRunner->isSetup();
+    $detected = $this->moduleDetector->detect();
+    $labels = ModuleDetector::suiteLabels();
+    $settings = \Drupal::config('smoke.settings');
+    $enabledSuites = $settings->get('suites') ?? [];
+    $lastResults = $this->testRunner->getLastResults();
+    $lastRun = $this->testRunner->getLastRunTime();
+
+    // Header.
+    $this->io()->newLine();
+    $this->io()->text('  <fg=cyan>  ___  __  __   ___   _  __ ___</>');
+    $this->io()->text('  <fg=cyan> / __|/  \/  \ / _ \ | |/ /| __|</>');
+    $this->io()->text('  <fg=cyan> \__ \ |\/| || (_) ||   < | _|</>');
+    $this->io()->text('  <fg=cyan> |___/_|  |_| \___/ |_|\_\|___|</>');
+    $this->io()->newLine();
+    $this->io()->text("  <fg=gray>{$siteName} · {$baseUrl}</>");
+    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->io()->newLine();
+
+    // Status.
+    if (!$isSetup) {
+      $this->io()->text('  <fg=yellow;options=bold>SETUP NEEDED</>');
+      $this->io()->text('  Run: <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
+      $this->io()->newLine();
+      return;
+    }
+
+    // Last run results.
+    if ($lastResults && $lastRun) {
+      $summary = $lastResults['summary'] ?? [];
+      $passed = (int) ($summary['passed'] ?? 0);
+      $failed = (int) ($summary['failed'] ?? 0);
+      $duration = number_format(($summary['duration'] ?? 0) / 1000, 1);
+      $date = date('M j, g:ia', $lastRun);
+
+      if ($failed === 0 && $passed > 0) {
+        $this->io()->text("  <fg=green;options=bold>✓ ALL CLEAR</>  {$passed} passed in {$duration}s");
+      }
+      elseif ($failed > 0) {
+        $this->io()->text("  <fg=red;options=bold>✕ {$failed} FAILED</>  {$passed} passed, {$failed} failed in {$duration}s");
+      }
+      $this->io()->text("  <fg=gray>Last run: {$date}</>");
+      $this->io()->newLine();
+    }
+    else {
+      $this->io()->text('  <fg=blue>●</> No tests run yet.');
+      $this->io()->newLine();
+    }
+
+    // Detected suites.
+    $this->io()->text('  <options=bold>Suites</>');
+    $this->io()->newLine();
+
+    foreach ($labels as $id => $label) {
+      $isDetected = !empty($detected[$id]['detected']);
+      $isEnabled = $enabledSuites[$id] ?? TRUE;
+      $result = $lastResults['suites'][$id] ?? NULL;
+
+      if (!$isDetected) {
+        $icon = '<fg=gray>○</>';
+        $status = '<fg=gray>not detected</>';
+      }
+      elseif (!$isEnabled) {
+        $icon = '<fg=yellow>—</>';
+        $status = '<fg=yellow>disabled</>';
+      }
+      elseif ($result && ($result['failed'] ?? 0) === 0 && ($result['passed'] ?? 0) > 0) {
+        $p = (int) ($result['passed'] ?? 0);
+        $t = number_format(($result['duration'] ?? 0) / 1000, 1);
+        $icon = '<fg=green>✓</>';
+        $status = "<fg=green>{$p} passed</> <fg=gray>{$t}s</>";
+      }
+      elseif ($result && ($result['failed'] ?? 0) > 0) {
+        $f = (int) ($result['failed'] ?? 0);
+        $icon = '<fg=red>✕</>';
+        $status = "<fg=red>{$f} failed</>";
+      }
+      else {
+        $icon = '<fg=blue>●</>';
+        $status = '<fg=blue>ready</>';
+      }
+
+      $paddedLabel = str_pad($label, 18);
+      $this->io()->text("    {$icon} {$paddedLabel}{$status}");
+    }
+
+    // Commands.
+    $this->io()->newLine();
+    $this->io()->text('  <options=bold>Commands</>');
+    $this->io()->newLine();
+    $this->io()->text('    <options=bold>ddev drush smoke --run</>         Run all tests');
+    $this->io()->text('    <options=bold>ddev drush smoke:suite webform</>  Run one suite');
+    $this->io()->text('    <options=bold>ddev drush smoke:setup</>         Regenerate config');
+    $this->io()->newLine();
+
+    // Links.
+    if ($baseUrl && $baseUrl !== 'unknown') {
+      $this->io()->text('  <options=bold>Links</>');
+      $this->io()->newLine();
+      $this->io()->text("    Dashboard:     {$baseUrl}/admin/reports/smoke");
+      $this->io()->text("    Settings:      {$baseUrl}/admin/config/development/smoke");
+      $hasWebform = !empty($detected['webform']['detected']);
+      if ($hasWebform) {
+        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+      }
+      $this->io()->newLine();
+    }
+  }
+
+  /**
+   * Runs all tests and prints results.
+   */
+  private function runTests(): void {
     if (!$this->testRunner->isSetup()) {
       $this->io()->error('Playwright is not set up. Run: drush smoke:setup');
       return;
     }
 
-    $this->printHeader();
+    $siteConfig = \Drupal::config('system.site');
+    $siteName = (string) $siteConfig->get('name');
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: 'unknown';
+
+    $this->io()->newLine();
+    $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
+    $this->io()->text("  <fg=gray>{$baseUrl}</>");
+    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->io()->newLine();
     $this->io()->text('  Running tests...');
     $this->io()->newLine();
 
@@ -47,20 +185,7 @@ final class SmokeRunCommand extends DrushCommands {
   }
 
   /**
-   * Prints the branded header.
-   */
-  private function printHeader(): void {
-    $siteConfig = \Drupal::config('system.site');
-    $siteName = (string) $siteConfig->get('name');
-
-    $this->io()->newLine();
-    $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
-    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    $this->io()->newLine();
-  }
-
-  /**
-   * Prints a formatted results table.
+   * Prints a formatted results report.
    */
   private function printResults(array $results): void {
     $suites = $results['suites'] ?? [];
@@ -74,21 +199,34 @@ final class SmokeRunCommand extends DrushCommands {
       return;
     }
 
-    // Table header.
-    $this->io()->text('  <fg=gray>Suite            Tests   Pass   Fail   Time</>');
-    $this->io()->text('  <fg=gray>───────────────  ─────   ────   ────   ─────</>');
-
     $labels = ModuleDetector::suiteLabels();
-    foreach ($suites as $id => $suite) {
-      $label = str_pad($labels[$id] ?? $suite['title'] ?? $id, 15);
-      $total = ($suite['passed'] ?? 0) + ($suite['failed'] ?? 0);
-      $tests = str_pad((string) $total, 5);
-      $pass = str_pad((string) ($suite['passed'] ?? 0), 4);
-      $fail = str_pad((string) ($suite['failed'] ?? 0), 4);
-      $time = number_format(($suite['duration'] ?? 0) / 1000, 1) . 's';
 
-      $failColor = ($suite['failed'] ?? 0) > 0 ? 'red' : 'gray';
-      $this->io()->text("  {$label}  {$tests}   {$pass}   <fg={$failColor}>{$fail}</>   {$time}");
+    foreach ($suites as $id => $suite) {
+      $label = $labels[$id] ?? $suite['title'] ?? $id;
+      $failed = (int) ($suite['failed'] ?? 0);
+      $passed = (int) ($suite['passed'] ?? 0);
+      $time = number_format(($suite['duration'] ?? 0) / 1000, 1);
+
+      $badge = $failed > 0
+        ? "<fg=red>✕ {$failed} failed</>"
+        : "<fg=green>✓ {$passed} passed</>";
+
+      $this->io()->text("  <options=bold>{$label}</>  {$badge}  <fg=gray>{$time}s</>");
+
+      foreach (($suite['tests'] ?? []) as $test) {
+        $icon = ($test['status'] ?? '') === 'passed'
+          ? '<fg=green>✓</>'
+          : '<fg=red>✕</>';
+        $testTime = number_format(($test['duration'] ?? 0) / 1000, 1);
+        $this->io()->text("    {$icon} {$test['title']}  <fg=gray>{$testTime}s</>");
+
+        if (($test['status'] ?? '') === 'failed' && !empty($test['error'])) {
+          $error = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $test['error']);
+          $this->io()->text('      <fg=red>' . substr($error, 0, 200) . '</>');
+        }
+      }
+
+      $this->io()->newLine();
     }
 
     // Summary.
@@ -96,35 +234,36 @@ final class SmokeRunCommand extends DrushCommands {
     $totalFailed = (int) ($summary['failed'] ?? 0);
     $totalDuration = number_format(($summary['duration'] ?? 0) / 1000, 1);
 
-    $this->io()->newLine();
-    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if ($totalFailed === 0 && $totalPassed > 0) {
-      $this->io()->text("  Result: <fg=green>{$totalPassed} passed</>, 0 failed ({$totalDuration}s)");
-      $this->io()->text('  Status: <fg=green;options=bold>ALL CLEAR</>');
+      $this->io()->text("  <fg=green;options=bold>ALL CLEAR</>  {$totalPassed} passed in {$totalDuration}s");
     }
     elseif ($totalFailed > 0) {
-      $this->io()->text("  Result: {$totalPassed} passed, <fg=red>{$totalFailed} failed</> ({$totalDuration}s)");
-      $this->io()->text('  Status: <fg=red;options=bold>FAILURES DETECTED</>');
-
-      // Print failure details.
-      $this->io()->newLine();
-      foreach ($suites as $suite) {
-        foreach (($suite['tests'] ?? []) as $test) {
-          if (($test['status'] ?? '') === 'failed') {
-            $this->io()->text("  <fg=red>✕</> {$test['title']}");
-            if (!empty($test['error'])) {
-              $this->io()->text('    <fg=gray>' . substr($test['error'], 0, 200) . '</>');
-            }
-          }
-        }
-      }
+      $this->io()->text("  <fg=red;options=bold>FAILURES</>  {$totalPassed} passed, {$totalFailed} failed in {$totalDuration}s");
     }
     else {
-      $this->io()->text("  Result: No tests ran.");
+      $this->io()->text('  No tests ran.');
+    }
+
+    // Links.
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: '';
+    if ($baseUrl) {
+      $this->io()->newLine();
+      $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
+      if ($this->hasWebformResults($suites)) {
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+      }
     }
 
     $this->io()->newLine();
+  }
+
+  /**
+   * Checks if webform results exist.
+   */
+  private function hasWebformResults(array $suites): bool {
+    return isset($suites['webform']) && (($suites['webform']['passed'] ?? 0) + ($suites['webform']['failed'] ?? 0)) > 0;
   }
 
 }

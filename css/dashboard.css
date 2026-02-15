@@ -148,10 +148,27 @@
   color: #9ca3af;
 }
 
+/* ── Ready banner ── */
+
+.smoke-banner--ready {
+  background: #f0f9ff;
+  border: 1px solid #93c5fd;
+}
+
 /* ── Actions ── */
 
 .smoke-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.smoke-actions__env {
+  font-size: 0.8rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #9ca3af;
+  letter-spacing: 0.01em;
 }
 
 .smoke-btn {
@@ -331,11 +348,35 @@
   background: #fafafa;
 }
 
+.smoke-card__footer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .smoke-card__count {
   font-size: 0.8rem;
   font-weight: 600;
   color: #6b7280;
   font-variant-numeric: tabular-nums;
+}
+
+.smoke-card__links {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.smoke-link {
+  font-size: 0.78rem;
+  color: var(--gin-color-primary, #1565c0);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.smoke-link:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 /* ── Responsive ── */

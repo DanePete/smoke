@@ -46,8 +46,14 @@ final class SmokeSuiteCommand extends DrushCommands {
       return;
     }
 
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: '';
+
     $this->io()->newLine();
-    $this->io()->text("  Running <options=bold>{$labels[$suite]}</> suite...");
+    $this->io()->text("  <options=bold>{$labels[$suite]}</>");
+    if ($baseUrl) {
+      $this->io()->text("  <fg=gray>{$baseUrl}</>");
+    }
+    $this->io()->text('  ───────────────────────────────────────');
     $this->io()->newLine();
 
     $results = $this->testRunner->run($suite);
@@ -64,20 +70,42 @@ final class SmokeSuiteCommand extends DrushCommands {
       $this->io()->text("  {$icon} {$test['title']}  <fg=gray>{$time}</>");
 
       if (($test['status'] ?? '') === 'failed' && !empty($test['error'])) {
-        $this->io()->text('    <fg=red>' . substr($test['error'], 0, 200) . '</>');
+        $error = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $test['error']);
+        $this->io()->text('    <fg=red>' . substr($error, 0, 200) . '</>');
       }
     }
 
     $passed = (int) ($suiteData['passed'] ?? 0);
     $failed = (int) ($suiteData['failed'] ?? 0);
+    $duration = number_format(($suiteData['duration'] ?? 0) / 1000, 1);
     $this->io()->newLine();
+    $this->io()->text('  ───────────────────────────────────────');
 
-    if ($failed === 0) {
-      $this->io()->success("{$labels[$suite]}: {$passed} tests passed.");
+    if ($failed === 0 && $passed > 0) {
+      $this->io()->text("  <fg=green;options=bold>PASSED</>  {$passed} tests in {$duration}s");
     }
-    else {
-      $this->io()->error("{$labels[$suite]}: {$failed} of " . ($passed + $failed) . " tests failed.");
+    elseif ($failed > 0) {
+      $this->io()->text("  <fg=red;options=bold>FAILED</>  {$failed} of " . ($passed + $failed) . " in {$duration}s");
     }
+
+    // Suite-specific links.
+    if ($baseUrl) {
+      $this->io()->newLine();
+      if ($suite === 'webform') {
+        $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/smoke_test");
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/submissions");
+      }
+      elseif ($suite === 'auth') {
+        $this->io()->text("  <fg=gray>Login page:</>      {$baseUrl}/user/login");
+      }
+      elseif ($suite === 'commerce') {
+        $this->io()->text("  <fg=gray>Products:</>        {$baseUrl}/admin/commerce/products");
+        $this->io()->text("  <fg=gray>Orders:</>          {$baseUrl}/admin/commerce/orders");
+      }
+      $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
+    }
+
+    $this->io()->newLine();
   }
 
 }

@@ -44,6 +44,7 @@ final class DashboardController extends ControllerBase {
     $labels = ModuleDetector::suiteLabels();
     $settings = $this->config('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: $this->getRequest()->getSchemeAndHttpHost();
 
     // Build suite data for the template.
     $suites = [];
@@ -63,6 +64,7 @@ final class DashboardController extends ControllerBase {
         'skipped' => (int) ($resultData['skipped'] ?? 0),
         'duration' => (int) ($resultData['duration'] ?? 0),
         'tests' => $resultData['tests'] ?? [],
+        'links' => $this->suiteLinks($id, $baseUrl),
       ];
     }
 
@@ -91,12 +93,68 @@ final class DashboardController extends ControllerBase {
       '#last_run' => $lastRun,
       '#is_setup' => $isSetup,
       '#csrf_token' => $csrfToken,
+      '#base_url' => $baseUrl,
       '#attached' => [
         'library' => ['smoke/dashboard'],
       ],
+      '#cache' => ['max-age' => 0],
     ];
 
     return $build;
+  }
+
+  /**
+   * Returns useful links for a given suite.
+   */
+  private function suiteLinks(string $id, string $baseUrl): array {
+    $links = [];
+
+    switch ($id) {
+      case 'webform':
+        $links[] = [
+          'label' => 'View form',
+          'url' => $baseUrl . '/webform/smoke_test',
+        ];
+        $links[] = [
+          'label' => 'View submissions',
+          'url' => $baseUrl . '/admin/structure/webform/manage/smoke_test/submissions',
+        ];
+        break;
+
+      case 'auth':
+        $links[] = [
+          'label' => 'Login page',
+          'url' => $baseUrl . '/user/login',
+        ];
+        break;
+
+      case 'commerce':
+        $links[] = [
+          'label' => 'Products',
+          'url' => $baseUrl . '/admin/commerce/products',
+        ];
+        $links[] = [
+          'label' => 'Orders',
+          'url' => $baseUrl . '/admin/commerce/orders',
+        ];
+        break;
+
+      case 'search':
+        $links[] = [
+          'label' => 'Search config',
+          'url' => $baseUrl . '/admin/config/search',
+        ];
+        break;
+
+      case 'core_pages':
+        $links[] = [
+          'label' => 'Homepage',
+          'url' => $baseUrl . '/',
+        ];
+        break;
+    }
+
+    return $links;
   }
 
   /**
@@ -117,16 +175,21 @@ final class DashboardController extends ControllerBase {
     $summary = $results['summary'] ?? [];
     $failed = (int) ($summary['failed'] ?? 0);
     $passed = (int) ($summary['passed'] ?? 0);
+    $duration = number_format(($summary['duration'] ?? 0) / 1000, 1);
     $total = $passed + $failed;
 
     if ($failed === 0 && $total > 0) {
-      $this->messenger()->addStatus($this->t('All @count tests passed.', ['@count' => $total]));
+      $this->messenger()->addStatus($this->t('All @count tests passed in @times.', [
+        '@count' => $total,
+        '@time' => $duration,
+      ]));
     }
     elseif ($failed > 0) {
-      $this->messenger()->addWarning($this->t('@passed of @total tests passed. @failed failed.', [
+      $this->messenger()->addWarning($this->t('@passed of @total passed, @failed failed in @times.', [
         '@passed' => $passed,
         '@total' => $total,
         '@failed' => $failed,
+        '@time' => $duration,
       ]));
     }
     else {
@@ -156,19 +219,22 @@ final class DashboardController extends ControllerBase {
     if ($suiteData) {
       $failed = (int) ($suiteData['failed'] ?? 0);
       $passed = (int) ($suiteData['passed'] ?? 0);
+      $duration = number_format(($suiteData['duration'] ?? 0) / 1000, 1);
       $label = Html::escape($suiteData['title'] ?? $suite);
 
       if ($failed === 0) {
-        $this->messenger()->addStatus($this->t('@label: @count tests passed.', [
+        $this->messenger()->addStatus($this->t('@label: @count tests passed in @times.', [
           '@label' => $label,
           '@count' => $passed,
+          '@time' => $duration,
         ]));
       }
       else {
-        $this->messenger()->addWarning($this->t('@label: @failed of @total tests failed.', [
+        $this->messenger()->addWarning($this->t('@label: @failed of @total failed in @times.', [
           '@label' => $label,
           '@failed' => $failed,
           '@total' => $passed + $failed,
+          '@time' => $duration,
         ]));
       }
     }
