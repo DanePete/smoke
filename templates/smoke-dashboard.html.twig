@@ -8,6 +8,7 @@
  *   - summary: { total, passed, failed, skipped, duration }
  *   - last_run: unix timestamp of last run
  *   - is_setup: boolean
+ *   - csrf_token: string
  */
 #}
 
@@ -68,7 +69,7 @@
   {% if is_setup %}
     <div class="smoke-actions">
       <form method="post" action="{{ path('smoke.run') }}" class="smoke-actions__form">
-        <input type="hidden" name="token" value="{{ csrf_token('smoke') }}" />
+        <input type="hidden" name="token" value="{{ csrf_token }}" />
         <button type="submit" class="smoke-btn smoke-btn--primary">
           {{ 'Run All Tests'|t }}
         </button>
@@ -131,7 +132,7 @@
         {% if suite.status != 'skipped' and is_setup %}
           <div class="smoke-card__footer">
             <form method="post" action="{{ path('smoke.run_suite', { suite: id }) }}">
-              <input type="hidden" name="token" value="{{ csrf_token('smoke') }}" />
+              <input type="hidden" name="token" value="{{ csrf_token }}" />
               <button type="submit" class="smoke-btn smoke-btn--small">
                 {{ 'Run'|t }}
               </button>

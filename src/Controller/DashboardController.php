@@ -82,12 +82,15 @@ final class DashboardController extends ControllerBase {
       'duration' => 0,
     ];
 
+    $csrfToken = \Drupal::csrfToken()->get('smoke');
+
     $build = [
       '#theme' => 'smoke_dashboard',
       '#suites' => $suites,
       '#summary' => $summary,
       '#last_run' => $lastRun,
       '#is_setup' => $isSetup,
+      '#csrf_token' => $csrfToken,
       '#attached' => [
         'library' => ['smoke/dashboard'],
       ],

@@ -43,9 +43,18 @@ final class TestRunner {
     $this->configGenerator->writeConfig();
 
     $playwrightDir = $this->getPlaywrightDir();
+    $resultsFile = $playwrightDir . '/results.json';
+
+    // Remove stale results file.
+    if (file_exists($resultsFile)) {
+      @unlink($resultsFile);
+    }
+
+    // Don't pass --reporter here; the playwright.config.ts already
+    // writes JSON to results.json. Passing it on CLI would override
+    // the config and send JSON to stdout, causing buffer deadlocks.
     $args = [
       'npx', 'playwright', 'test',
-      '--reporter=json',
     ];
 
     if ($suite) {
@@ -55,10 +64,15 @@ final class TestRunner {
     $process = new Process($args, $playwrightDir);
     $process->setTimeout(300);
 
+    // Disable in-memory output buffering to prevent deadlocks on large output.
+    // We read results from the JSON file Playwright writes to disk instead.
+    $process->disableOutput();
+
     // Playwright returns non-zero if tests fail, so we don't throw on failure.
     $process->run();
 
-    $output = $process->getOutput();
+    // Read results from the file written by Playwright's JSON reporter.
+    $output = file_exists($resultsFile) ? (file_get_contents($resultsFile) ?: '') : '';
     $results = $this->parseResults($output);
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();

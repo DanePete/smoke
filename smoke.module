@@ -30,6 +30,7 @@ function smoke_theme(): array {
         'summary' => [],
         'last_run' => NULL,
         'is_setup' => FALSE,
+        'csrf_token' => '',
       ],
       'template' => 'smoke-dashboard',
     ],

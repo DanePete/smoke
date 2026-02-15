@@ -22,7 +22,6 @@ export default defineConfig({
 
   reporter: [
     ['json', { outputFile: 'results.json' }],
-    ['list'],
   ],
 
   use: {
