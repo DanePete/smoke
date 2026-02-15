@@ -177,88 +177,15 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text("  <fg=gray>{$baseUrl}</>");
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     $this->io()->newLine();
-
-    // Smoke animation while tests run.
-    $this->animateSmoke();
+    $this->io()->text('  <fg=gray>        (  )</>');
+    $this->io()->text('  <fg=gray>       ) (</>');
+    $this->io()->text('  <fg=gray>      (  )</>');
+    $this->io()->text('  <fg=white;options=bold>    ,___,</>');
+    $this->io()->text('  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>');
+    $this->io()->newLine();
 
     $results = $this->testRunner->run();
-
-    // Clear the animation.
-    $this->clearLines(6);
-
     $this->printResults($results);
-  }
-
-  /**
-   * Plays a smoke rising animation.
-   */
-  private function animateSmoke(): void {
-    $frames = [
-      [
-        '  <fg=gray>        (</>' ,
-        '  <fg=gray>       )</>' ,
-        '  <fg=gray>      (</>' ,
-        '  <fg=white;options=bold>    ,___,</>' ,
-        '  <fg=white;options=bold>    |   |</>  <fg=cyan>Lighting up...</>' ,
-      ],
-      [
-        '  <fg=gray>       )</>' ,
-        '  <fg=gray>      (</>' ,
-        '  <fg=gray>       )</>' ,
-        '  <fg=white;options=bold>    ,___,</>' ,
-        '  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>' ,
-      ],
-      [
-        '  <fg=gray>      (</>' ,
-        '  <fg=gray>       )</>' ,
-        '  <fg=gray>      (</>' ,
-        '  <fg=white;options=bold>    ,___,</>' ,
-        '  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>' ,
-      ],
-      [
-        '  <fg=gray>       )</>' ,
-        '  <fg=gray>        (</>' ,
-        '  <fg=gray>       )</>' ,
-        '  <fg=white;options=bold>    ,___,</>' ,
-        '  <fg=white;options=bold>    |   |</>  <fg=cyan>Waiting for Playwright...</>' ,
-      ],
-    ];
-
-    $output = $this->output();
-
-    // Show first frame.
-    foreach ($frames[0] as $line) {
-      $output->writeln($line);
-    }
-    $output->writeln('');
-    usleep(300_000);
-
-    // Animate remaining frames.
-    for ($i = 1; $i < count($frames); $i++) {
-      // Move cursor up.
-      $lineCount = count($frames[$i]) + 1;
-      $output->write("\033[{$lineCount}A");
-
-      foreach ($frames[$i] as $line) {
-        $output->write("\033[2K");
-        $output->writeln($line);
-      }
-      $output->writeln('');
-
-      usleep(400_000);
-    }
-  }
-
-  /**
-   * Clears N lines above the cursor.
-   */
-  private function clearLines(int $count): void {
-    $output = $this->output();
-    $output->write("\033[{$count}A");
-    for ($i = 0; $i < $count; $i++) {
-      $output->write("\033[2K\n");
-    }
-    $output->write("\033[{$count}A");
   }
 
   /**
@@ -314,12 +241,16 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if ($totalFailed === 0 && $totalPassed > 0) {
-      $this->animateResult(TRUE);
-      $this->io()->text("  <fg=green;options=bold>ALL CLEAR</>  {$totalPassed} passed in {$totalDuration}s");
+      $this->io()->newLine();
+      $this->io()->text('  <fg=green>  *  *  *  *  *  *  *  *  *  *  *</>');
+      $this->io()->text("  <fg=green;options=bold>  ✓  ALL CLEAR</>  {$totalPassed} passed in {$totalDuration}s");
+      $this->io()->text('  <fg=green>  *  *  *  *  *  *  *  *  *  *  *</>');
     }
     elseif ($totalFailed > 0) {
-      $this->animateResult(FALSE);
-      $this->io()->text("  <fg=red;options=bold>FAILURES</>  {$totalPassed} passed, {$totalFailed} failed in {$totalDuration}s");
+      $this->io()->newLine();
+      $this->io()->text('  <fg=red>  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓</>');
+      $this->io()->text("  <fg=red;options=bold>  ✕  FAILURES</>   {$totalPassed} passed, {$totalFailed} failed in {$totalDuration}s");
+      $this->io()->text('  <fg=red>  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓</>');
     }
     else {
       $this->io()->text('  No tests ran.');
@@ -336,34 +267,6 @@ final class SmokeRunCommand extends DrushCommands {
     }
 
     $this->io()->newLine();
-  }
-
-  /**
-   * Animated result banner.
-   */
-  private function animateResult(bool $passed): void {
-    $output = $this->output();
-
-    if ($passed) {
-      $frames = [
-        '  <fg=green>  ·  ·  ·  ·  ·  ·  ·  ·  ·</>',
-        '  <fg=green>  *  ·  *  ·  *  ·  *  ·  *</>',
-        '  <fg=green>  *  *  *  *  *  *  *  *  *</>',
-      ];
-    }
-    else {
-      $frames = [
-        '  <fg=red>  ░  ░  ░  ░  ░  ░  ░  ░  ░</>',
-        '  <fg=red>  ▒  ▒  ▒  ▒  ▒  ▒  ▒  ▒  ▒</>',
-        '  <fg=red>  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓</>',
-      ];
-    }
-
-    foreach ($frames as $frame) {
-      $output->writeln($frame);
-      usleep(120_000);
-      $output->write("\033[1A\033[2K");
-    }
   }
 
   /**
