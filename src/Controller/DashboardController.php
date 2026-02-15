@@ -65,6 +65,7 @@ final class DashboardController extends ControllerBase {
         'duration' => (int) ($resultData['duration'] ?? 0),
         'tests' => $resultData['tests'] ?? [],
         'links' => $this->suiteLinks($id, $baseUrl),
+        'details' => $this->suiteDetails($id, $info, $baseUrl),
       ];
     }
 
@@ -166,6 +167,155 @@ final class DashboardController extends ControllerBase {
     }
 
     return $links;
+  }
+
+  /**
+   * Returns detailed technical info for a suite to display on the dashboard.
+   *
+   * Includes tested paths, selectors, fields, and Playwright spec filenames.
+   */
+  private function suiteDetails(string $id, array $info, string $baseUrl): array {
+    $details = [];
+    $details['spec_file'] = str_replace('_', '-', $id) . '.spec.ts';
+
+    switch ($id) {
+      case 'core_pages':
+        $pages = $info['pages'] ?? [];
+        $details['tested_paths'] = array_map(fn(array $p) => $p['path'], $pages);
+        $details['checks'] = [
+          'HTTP 200 on each page',
+          'No PHP fatal errors in body',
+          'No JavaScript console errors',
+          'No broken images (img with naturalWidth === 0)',
+          'No mixed content (HTTP resources on HTTPS page)',
+          'Site title matches in &lt;title&gt; tag',
+        ];
+        $details['selectors'] = [
+          'body' => 'PHP error check',
+          'img:visible' => 'Broken image detection',
+          'link[rel="stylesheet"]' => 'Stylesheet count',
+        ];
+        break;
+
+      case 'auth':
+        $details['tested_paths'] = ['/user/login', '/user/password'];
+        $details['test_user'] = 'smoke_bot';
+        $details['test_role'] = 'smoke_bot (Smoke Test Bot)';
+        $details['checks'] = [
+          'Login page returns 200',
+          'Username + Password fields visible',
+          'Invalid login shows .messages--error',
+          'smoke_bot can log in and redirect to /user/{uid}',
+          'Password reset page has "Username or email" field',
+        ];
+        $details['selectors'] = [
+          'getByLabel("Username")' => 'Username field',
+          'getByLabel("Password")' => 'Password field',
+          'getByRole("button", {name: "Log in"})' => 'Submit button',
+          '.messages--error, .messages.error' => 'Error message',
+          'getByLabel("Username or email address")' => 'Password reset field',
+        ];
+        break;
+
+      case 'webform':
+        $form = $info['form'] ?? NULL;
+        if ($form) {
+          $details['tested_paths'] = [$form['path'] ?? '/webform/smoke_test'];
+          $details['webform_id'] = $form['id'] ?? 'smoke_test';
+          $details['fields'] = [];
+          foreach (($form['fields'] ?? []) as $field) {
+            $details['fields'][] = [
+              'key' => Html::escape($field['key'] ?? ''),
+              'type' => Html::escape($field['type'] ?? ''),
+              'title' => Html::escape($field['title'] ?? ''),
+              'required' => !empty($field['required']),
+            ];
+          }
+          $details['checks'] = [
+            'Form page returns 200',
+            'All fields are filled with test data',
+            'Submit button clicked',
+            'Confirmation message or URL change detected',
+          ];
+          $details['selectors'] = [
+            'getByLabel("{field title}")' => 'Each form field by label',
+            'getByRole("button", {name: "Submit"})' => 'Submit button',
+            'body text content' => 'Confirmation check (submission/received/thank)',
+          ];
+        }
+        break;
+
+      case 'commerce':
+        $details['tested_paths'] = [];
+        if (!empty($info['hasProducts'])) {
+          $details['tested_paths'][] = '/products (or catalog page)';
+        }
+        if (!empty($info['hasCart'])) {
+          $details['tested_paths'][] = '/cart';
+        }
+        if (!empty($info['hasCheckout'])) {
+          $details['tested_paths'][] = '/checkout';
+        }
+        $details['checks'] = [
+          'Product catalog returns 200',
+          'Cart endpoint exists',
+          'Checkout endpoint exists',
+          'At least one published product found',
+        ];
+        $details['flags'] = [
+          'hasProducts' => !empty($info['hasProducts']),
+          'hasStores' => !empty($info['hasStores']),
+          'hasCart' => !empty($info['hasCart']),
+          'hasCheckout' => !empty($info['hasCheckout']),
+        ];
+        break;
+
+      case 'search':
+        $searchPath = $info['searchPath'] ?? '/search';
+        $details['tested_paths'] = [$searchPath];
+        $details['checks'] = [
+          'Search page returns 200',
+          'Search form/input is present',
+          'No PHP errors',
+        ];
+        $details['selectors'] = [
+          'input[type="search"], input[name*="search"], form[role="search"]' => 'Search input',
+        ];
+        break;
+
+      case 'health':
+        $details['tested_paths'] = [
+          '/admin/reports/status',
+          '/admin/reports/dblog?type[]=php',
+          '/ (homepage for asset check)',
+          '/user/login (cache header check)',
+        ];
+        $details['checks'] = [
+          'Status report has no "Fatal error"',
+          'Cron has run (not "never run")',
+          'CSS/JS assets return 200 (no 404/500)',
+          'At least one stylesheet loaded',
+          'No PHP errors in dblog',
+          'Login page not served from page cache',
+        ];
+        $details['selectors'] = [
+          '.system-status-report__status-title:has-text("Error")' => 'Status report errors',
+          'details:has-text("Cron")' => 'Cron status row',
+          'link[rel="stylesheet"]' => 'Stylesheet count',
+          'x-drupal-cache header' => 'Page cache check',
+        ];
+        $details['requires_auth'] = TRUE;
+        break;
+    }
+
+    // Custom URLs.
+    $settings = $this->config('smoke.settings');
+    $customUrls = $settings->get('custom_urls') ?? [];
+    if (!empty($customUrls) && $id === 'core_pages') {
+      $details['custom_urls'] = $customUrls;
+    }
+
+    return $details;
   }
 
   /**

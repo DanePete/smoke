@@ -50,6 +50,51 @@ function smoke_install(): void {
 }
 
 /**
+ * Implements hook_requirements().
+ */
+function smoke_requirements(string $phase): array {
+  $requirements = [];
+
+  if ($phase === 'runtime') {
+    $modulePath = \Drupal::service('extension.list.module')->getPath('smoke');
+    $playwrightDir = DRUPAL_ROOT . '/' . $modulePath . '/playwright';
+    $hasNodeModules = is_dir($playwrightDir . '/node_modules');
+    $hasConfig = file_exists($playwrightDir . '/.smoke-config.json');
+
+    if (!$hasNodeModules) {
+      $requirements['smoke_setup'] = [
+        'title' => t('Smoke Testing'),
+        'value' => t('Not set up'),
+        'description' => t('Playwright is not installed. Run: <code>bash web/modules/contrib/smoke/scripts/host-setup.sh</code> from your project root, or <code>ddev drush smoke:setup</code> if the DDEV Playwright addon is already installed.'),
+        'severity' => REQUIREMENT_WARNING,
+      ];
+    }
+    elseif (!$hasConfig) {
+      $requirements['smoke_setup'] = [
+        'title' => t('Smoke Testing'),
+        'value' => t('Config missing'),
+        'description' => t('Playwright is installed but test config is missing. Run: <code>ddev drush smoke:setup</code>'),
+        'severity' => REQUIREMENT_WARNING,
+      ];
+    }
+    else {
+      $lastRun = \Drupal::state()->get('smoke.last_run');
+      $value = $lastRun
+        ? t('Last run: @date', ['@date' => \Drupal::service('date.formatter')->format($lastRun, 'short')])
+        : t('Ready (not run yet)');
+
+      $requirements['smoke_setup'] = [
+        'title' => t('Smoke Testing'),
+        'value' => $value,
+        'severity' => REQUIREMENT_OK,
+      ];
+    }
+  }
+
+  return $requirements;
+}
+
+/**
  * Implements hook_uninstall().
  */
 function smoke_uninstall(): void {

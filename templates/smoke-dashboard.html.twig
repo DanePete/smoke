@@ -23,6 +23,7 @@
         <strong>{{ 'Playwright is not installed yet.'|t }}</strong>
         <p>{{ 'Run this command on your host machine to set up:'|t }}</p>
         <code class="smoke-code">bash web/modules/contrib/smoke/scripts/host-setup.sh</code>
+        <p class="smoke-hint">{{ 'After setup, config auto-regenerates on every <code>ddev start</code>.'|t }}</p>
       </div>
     </div>
   {% endif %}
@@ -69,7 +70,7 @@
       <div class="smoke-banner__icon">●</div>
       <div class="smoke-banner__content">
         <strong>{{ 'Ready to run.'|t }}</strong>
-        <p>{{ 'No test results yet. Click "Run All Tests" or run'|t }} <code class="smoke-code">ddev drush smoke</code></p>
+        <p>{{ 'No test results yet. Click "Run All Tests" or run'|t }} <code class="smoke-code">ddev drush smoke --run</code></p>
       </div>
     </div>
   {% endif %}
@@ -107,6 +108,9 @@
             {% endif %}
           </div>
           <p class="smoke-card__desc">{{ suite.description }}</p>
+          {% if suite.details.spec_file is defined %}
+            <span class="smoke-card__spec">{{ suite.details.spec_file }}</span>
+          {% endif %}
         </div>
 
         {# ── Test results ── #}
@@ -142,6 +146,128 @@
           </div>
         {% endif %}
 
+        {# ── Technical details panel ── #}
+        {% if suite.details is not empty and suite.status != 'skipped' %}
+          <details class="smoke-details">
+            <summary class="smoke-details__toggle">{{ 'Test Details'|t }}</summary>
+            <div class="smoke-details__content">
+
+              {# Tested paths #}
+              {% if suite.details.tested_paths is defined and suite.details.tested_paths|length > 0 %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Tested Paths'|t }}</h4>
+                  <ul class="smoke-detail-list">
+                    {% for path in suite.details.tested_paths %}
+                      <li><code class="smoke-mono">{{ path }}</code></li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {# Custom URLs #}
+              {% if suite.details.custom_urls is defined and suite.details.custom_urls|length > 0 %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Custom URLs'|t }}</h4>
+                  <ul class="smoke-detail-list">
+                    {% for url in suite.details.custom_urls %}
+                      <li><code class="smoke-mono">{{ url }}</code></li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {# Webform fields #}
+              {% if suite.details.fields is defined and suite.details.fields|length > 0 %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Webform Fields'|t }} <code class="smoke-mono">{{ suite.details.webform_id|default('smoke_test') }}</code></h4>
+                  <table class="smoke-detail-table">
+                    <thead>
+                      <tr>
+                        <th>{{ 'Key'|t }}</th>
+                        <th>{{ 'Type'|t }}</th>
+                        <th>{{ 'Label'|t }}</th>
+                        <th>{{ 'Required'|t }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for field in suite.details.fields %}
+                        <tr>
+                          <td><code class="smoke-mono">{{ field.key }}</code></td>
+                          <td><code class="smoke-mono">{{ field.type }}</code></td>
+                          <td>{{ field.title }}</td>
+                          <td>{% if field.required %}<span class="smoke-required">●</span>{% else %}—{% endif %}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endif %}
+
+              {# Commerce flags #}
+              {% if suite.details.flags is defined %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Detected Features'|t }}</h4>
+                  <div class="smoke-flags">
+                    {% for flag, value in suite.details.flags %}
+                      <span class="smoke-flag smoke-flag--{{ value ? 'on' : 'off' }}">
+                        {{ value ? '✓' : '✕' }} {{ flag }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+
+              {# Checks #}
+              {% if suite.details.checks is defined and suite.details.checks|length > 0 %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'What It Checks'|t }}</h4>
+                  <ul class="smoke-detail-list smoke-detail-list--checks">
+                    {% for check in suite.details.checks %}
+                      <li>{{ check }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
+              {# Selectors #}
+              {% if suite.details.selectors is defined %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Selectors & Locators'|t }}</h4>
+                  <table class="smoke-detail-table">
+                    <thead>
+                      <tr>
+                        <th>{{ 'Selector'|t }}</th>
+                        <th>{{ 'Purpose'|t }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for selector, purpose in suite.details.selectors %}
+                        <tr>
+                          <td><code class="smoke-mono">{{ selector }}</code></td>
+                          <td>{{ purpose }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% endif %}
+
+              {# Auth info #}
+              {% if suite.details.test_user is defined %}
+                <div class="smoke-detail-group">
+                  <h4 class="smoke-detail-group__title">{{ 'Test User'|t }}</h4>
+                  <p><code class="smoke-mono">{{ suite.details.test_user }}</code> (role: <code class="smoke-mono">{{ suite.details.test_role }}</code>)</p>
+                </div>
+              {% endif %}
+
+              {% if suite.details.requires_auth is defined and suite.details.requires_auth %}
+                <p class="smoke-detail-note">⚠ {{ 'Admin tests require smoke_bot login. Skipped on remote targets.'|t }}</p>
+              {% endif %}
+
+            </div>
+          </details>
+        {% endif %}
+
         {# ── Card footer with actions + links ── #}
         <div class="smoke-card__footer">
           <div class="smoke-card__footer-left">
@@ -170,5 +296,30 @@
       </div>
     {% endfor %}
   </div>
+
+  {# ── CLI reference ── #}
+  {% if is_setup %}
+    <div class="smoke-cli-ref">
+      <h3 class="smoke-cli-ref__title">{{ 'CLI Quick Reference'|t }}</h3>
+      <div class="smoke-cli-ref__commands">
+        <div class="smoke-cli-cmd">
+          <code class="smoke-code">ddev drush smoke --run</code>
+          <span>{{ 'Run all tests'|t }}</span>
+        </div>
+        <div class="smoke-cli-cmd">
+          <code class="smoke-code">ddev drush smoke:suite core_pages</code>
+          <span>{{ 'Run one suite'|t }}</span>
+        </div>
+        <div class="smoke-cli-cmd">
+          <code class="smoke-code">ddev drush smoke --run --target=https://...</code>
+          <span>{{ 'Test remote site'|t }}</span>
+        </div>
+        <div class="smoke-cli-cmd">
+          <code class="smoke-code">ddev drush smoke:setup</code>
+          <span>{{ 'Regenerate config'|t }}</span>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 
 </div>

@@ -379,6 +379,210 @@
   text-decoration: underline;
 }
 
+/* ── Spec file label ── */
+
+.smoke-card__spec {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  background: #f3f4f6;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.7rem;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+
+/* ── Details panel ── */
+
+.smoke-details {
+  border-top: 1px solid #f3f4f6;
+}
+
+.smoke-details__toggle {
+  padding: 0.6rem 1.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gin-color-primary, #1565c0);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.smoke-details__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.smoke-details__toggle::before {
+  content: '▸ ';
+}
+
+.smoke-details[open] > .smoke-details__toggle::before {
+  content: '▾ ';
+}
+
+.smoke-details__content {
+  padding: 0 1.25rem 1rem;
+}
+
+/* ── Detail groups ── */
+
+.smoke-detail-group {
+  margin-bottom: 0.85rem;
+}
+
+.smoke-detail-group__title {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.smoke-detail-list {
+  margin: 0;
+  padding: 0 0 0 1.2rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.smoke-detail-list--checks li {
+  list-style: none;
+  padding-left: 0;
+  margin-left: -1.2rem;
+}
+
+.smoke-detail-list--checks li::before {
+  content: '○ ';
+  color: #9ca3af;
+}
+
+.smoke-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  background: #f3f4f6;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  color: #374151;
+  word-break: break-all;
+}
+
+/* ── Detail tables ── */
+
+.smoke-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+}
+
+.smoke-detail-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.smoke-detail-table td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.smoke-required {
+  color: #ef4444;
+  font-size: 0.65rem;
+}
+
+/* ── Commerce flags ── */
+
+.smoke-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.smoke-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.smoke-flag--on {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.smoke-flag--off {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+/* ── Detail note ── */
+
+.smoke-detail-note {
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.6rem;
+  background: #fffbeb;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #92400e;
+}
+
+/* ── Hint text ── */
+
+.smoke-hint {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  margin-top: 0.25rem !important;
+}
+
+/* ── CLI reference ── */
+
+.smoke-cli-ref {
+  margin-top: 2rem;
+  padding: 1.25rem 1.5rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.smoke-cli-ref__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.smoke-cli-ref__commands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.5rem;
+}
+
+.smoke-cli-cmd {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.smoke-cli-cmd .smoke-code {
+  flex-shrink: 0;
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 520px) {
@@ -389,5 +593,9 @@
   .smoke-summary {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .smoke-cli-ref__commands {
+    grid-template-columns: 1fr;
   }
 }
