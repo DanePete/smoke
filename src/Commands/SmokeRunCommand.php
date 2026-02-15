@@ -72,12 +72,47 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     $this->io()->newLine();
 
-    // Status.
+    // Status — auto-run setup if possible.
     if (!$isSetup) {
-      $this->io()->text('  <fg=yellow;options=bold>SETUP NEEDED</>');
-      $this->io()->text('  Run: <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
-      $this->io()->newLine();
-      return;
+      $projectRoot = DRUPAL_ROOT . '/..';
+      $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+
+      if ($isDdev && $hasAddon) {
+        $this->io()->text('  <fg=cyan;options=bold>AUTO-SETUP</>  First run detected — setting up...');
+        $this->io()->newLine();
+
+        // Invoke smoke:setup programmatically.
+        $setupCmd = \Drupal::service('class_resolver')
+          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
+        if (method_exists($setupCmd, 'setup')) {
+          $setupCmd->setLogger($this->logger());
+          $setupCmd->setup(['quiet' => FALSE]);
+        }
+
+        // Re-check after setup.
+        if (!$this->testRunner->isSetup()) {
+          $this->io()->text('  <fg=red>Setup did not complete. Run manually:</>');
+          $this->io()->text('  <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
+          $this->io()->newLine();
+          return;
+        }
+
+        // Refresh state after setup.
+        $lastResults = $this->testRunner->getLastResults();
+        $lastRun = $this->testRunner->getLastRunTime();
+      }
+      else {
+        $this->io()->text('  <fg=yellow;options=bold>SETUP NEEDED</>');
+        if (!$hasAddon) {
+          $this->io()->text('  Run: <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
+        }
+        else {
+          $this->io()->text('  Run: <options=bold>ddev drush smoke:setup</>');
+        }
+        $this->io()->newLine();
+        return;
+      }
     }
 
     // Last run results.
@@ -172,8 +207,26 @@ final class SmokeRunCommand extends DrushCommands {
    */
   private function runTests(?string $targetUrl = NULL): void {
     if (!$this->testRunner->isSetup()) {
-      $this->io()->error('Playwright is not set up. Run: drush smoke:setup');
-      return;
+      // Try auto-setup if DDEV addon is present.
+      $projectRoot = DRUPAL_ROOT . '/..';
+      $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+
+      if ($isDdev && $hasAddon) {
+        $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
+        $this->io()->newLine();
+        $setupCmd = \Drupal::service('class_resolver')
+          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
+        if (method_exists($setupCmd, 'setup')) {
+          $setupCmd->setLogger($this->logger());
+          $setupCmd->setup(['quiet' => FALSE]);
+        }
+      }
+
+      if (!$this->testRunner->isSetup()) {
+        $this->io()->error('Playwright is not set up. Run: bash web/modules/contrib/smoke/scripts/host-setup.sh');
+        return;
+      }
     }
 
     $siteConfig = \Drupal::config('system.site');

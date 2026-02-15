@@ -49,6 +49,17 @@ final class ModuleDetector {
     // Health suite: admin status, cron, asset loading. Always available.
     $suites['health'] = $this->detectHealth();
 
+    // Sitemap: auto-detected when simple_sitemap or xmlsitemap is installed.
+    if ($this->moduleHandler->moduleExists('simple_sitemap') || $this->moduleHandler->moduleExists('xmlsitemap')) {
+      $suites['sitemap'] = $this->detectSitemap();
+    }
+
+    // Content creation round-trip. Always available.
+    $suites['content'] = $this->detectContent();
+
+    // Accessibility (axe-core). Always available.
+    $suites['accessibility'] = $this->detectAccessibility();
+
     return $suites;
   }
 
@@ -65,6 +76,9 @@ final class ModuleDetector {
       'commerce' => 'Commerce',
       'search' => 'Search',
       'health' => 'Health',
+      'sitemap' => 'Sitemap',
+      'content' => 'Content',
+      'accessibility' => 'Accessibility',
     ];
   }
 
@@ -81,6 +95,9 @@ final class ModuleDetector {
       'commerce' => 'cart',
       'search' => 'search',
       'health' => 'medical',
+      'sitemap' => 'sitemap',
+      'content' => 'content',
+      'accessibility' => 'accessibility',
     ];
   }
 
@@ -313,6 +330,57 @@ YAML;
       'label' => 'Health',
       'description' => 'Admin status report, cron, CSS/JS assets, PHP error log, cache headers.',
       'hasDblog' => $hasDblog,
+    ];
+  }
+
+  /**
+   * Detects XML sitemap module.
+   */
+  private function detectSitemap(): array {
+    $module = $this->moduleHandler->moduleExists('simple_sitemap') ? 'simple_sitemap' : 'xmlsitemap';
+    return [
+      'detected' => TRUE,
+      'label' => 'Sitemap',
+      'description' => 'XML sitemap exists, returns valid XML, contains URLs.',
+      'module' => $module,
+    ];
+  }
+
+  /**
+   * Detects content creation capability.
+   *
+   * Always available — tests that the full content pipeline works by
+   * creating a Basic Page, verifying it renders, then deleting it.
+   */
+  private function detectContent(): array {
+    // Check if the 'page' content type exists.
+    $hasPage = FALSE;
+    try {
+      $type = $this->entityTypeManager->getStorage('node_type')->load('page');
+      $hasPage = $type !== NULL;
+    }
+    catch (\Exception) {
+      // Node type storage might not exist.
+    }
+
+    return [
+      'detected' => $hasPage,
+      'label' => 'Content',
+      'description' => 'Creates a test page, verifies it renders, deletes it. Full content pipeline check.',
+      'contentType' => 'page',
+    ];
+  }
+
+  /**
+   * Detects accessibility scanning capability.
+   *
+   * Always available — runs axe-core WCAG 2.1 AA scans on key pages.
+   */
+  private function detectAccessibility(): array {
+    return [
+      'detected' => TRUE,
+      'label' => 'Accessibility',
+      'description' => 'WCAG 2.1 AA axe-core scan on homepage and login page.',
     ];
   }
 

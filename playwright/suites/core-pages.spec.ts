@@ -106,6 +106,28 @@ test.describe('Core Pages', () => {
     ).toHaveLength(0);
   });
 
+  test('404 page returns proper error (not WSOD)', async ({ page }) => {
+    const response = await page.goto('/smoke-test-nonexistent-page-xyz-404');
+    expect(response?.status()).toBe(404);
+
+    const body = await page.locator('body').textContent() ?? '';
+    expect(body).not.toContain('Fatal error');
+    expect(body).not.toContain('The website encountered an unexpected error');
+    expect(body.length, 'Page should have content (not blank)').toBeGreaterThan(50);
+  });
+
+  test('403 page returns access denied (not WSOD)', async ({ page }) => {
+    const response = await page.goto('/admin');
+    const status = response?.status() ?? 0;
+    expect([403, 302, 301]).toContain(status);
+
+    if (status === 403) {
+      const body = await page.locator('body').textContent() ?? '';
+      expect(body).not.toContain('Fatal error');
+      expect(body).not.toContain('The website encountered an unexpected error');
+    }
+  });
+
   if (config.customUrls && config.customUrls.length > 0) {
     for (const url of config.customUrls) {
       test(`Custom URL ${url} returns 200`, async ({ page }) => {

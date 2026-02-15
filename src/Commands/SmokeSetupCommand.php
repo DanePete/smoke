@@ -141,7 +141,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
-    // Step 6: Verify test user.
+    // Step 6: Verify test user and ensure permissions.
     if (!$quiet) {
       $this->step('Verifying smoke_bot test user...');
     }
@@ -149,6 +149,24 @@ final class SmokeSetupCommand extends DrushCommands {
     if ($password) {
       if (!$quiet) {
         $this->ok('smoke_bot ready.');
+      }
+      // Ensure content permissions are granted (added in later versions).
+      $role = \Drupal\user\Entity\Role::load('smoke_bot');
+      if ($role) {
+        $contentPerms = ['create page content', 'edit own page content', 'delete own page content'];
+        $changed = FALSE;
+        foreach ($contentPerms as $perm) {
+          if (!$role->hasPermission($perm)) {
+            $role->grantPermission($perm);
+            $changed = TRUE;
+          }
+        }
+        if ($changed) {
+          $role->save();
+          if (!$quiet) {
+            $this->ok('Content permissions granted to smoke_bot.');
+          }
+        }
       }
     }
     elseif (!$quiet) {

@@ -30,15 +30,32 @@ final class SmokeSuiteCommand extends DrushCommands {
   }
 
   #[CLI\Command(name: 'smoke:suite')]
-  #[CLI\Argument(name: 'suite', description: 'Suite to run (core_pages, auth, webform, commerce, search, health).')]
+  #[CLI\Argument(name: 'suite', description: 'Suite to run (core_pages, auth, webform, commerce, search, health, sitemap, content, accessibility).')]
   #[CLI\Help(description: 'Run a single smoke test suite.')]
   #[CLI\Usage(name: 'drush smoke:suite webform', description: 'Run only the webform tests.')]
   #[CLI\Usage(name: 'drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io', description: 'Test a remote site.')]
   #[CLI\Option(name: 'target', description: 'Remote URL to test against.')]
   public function suite(string $suite, array $options = ['target' => '']): void {
     if (!$this->testRunner->isSetup()) {
-      $this->io()->error('Playwright is not set up. Run: drush smoke:setup');
-      return;
+      $projectRoot = DRUPAL_ROOT . '/..';
+      $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+
+      if ($isDdev && $hasAddon) {
+        $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
+        $this->io()->newLine();
+        $setupCmd = \Drupal::service('class_resolver')
+          ->getInstanceFromDefinition(\Drupal\smoke\Commands\SmokeSetupCommand::class);
+        if (method_exists($setupCmd, 'setup')) {
+          $setupCmd->setLogger($this->logger());
+          $setupCmd->setup(['quiet' => FALSE]);
+        }
+      }
+
+      if (!$this->testRunner->isSetup()) {
+        $this->io()->error('Playwright is not set up. Run: bash web/modules/contrib/smoke/scripts/host-setup.sh');
+        return;
+      }
     }
 
     $labels = ModuleDetector::suiteLabels();
@@ -114,6 +131,12 @@ final class SmokeSuiteCommand extends DrushCommands {
       elseif ($suite === 'health') {
         $this->io()->text("  <fg=gray>Status report:</>   {$baseUrl}/admin/reports/status");
         $this->io()->text("  <fg=gray>Recent log:</>      {$baseUrl}/admin/reports/dblog");
+      }
+      elseif ($suite === 'sitemap') {
+        $this->io()->text("  <fg=gray>Sitemap:</>         {$baseUrl}/sitemap.xml");
+      }
+      elseif ($suite === 'content') {
+        $this->io()->text("  <fg=gray>Add content:</>     {$baseUrl}/node/add/page");
       }
       $this->io()->text("  <fg=gray>Dashboard:</>       {$baseUrl}/admin/reports/smoke");
     }

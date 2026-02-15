@@ -257,6 +257,15 @@ final class TestRunner {
       'health' => 'health',
       'Health' => 'health',
       'health.spec.ts' => 'health',
+      'sitemap' => 'sitemap',
+      'Sitemap' => 'sitemap',
+      'sitemap.spec.ts' => 'sitemap',
+      'content' => 'content',
+      'Content' => 'content',
+      'content.spec.ts' => 'content',
+      'accessibility' => 'accessibility',
+      'Accessibility' => 'accessibility',
+      'accessibility.spec.ts' => 'accessibility',
     ];
     return $map[$title] ?? NULL;
   }

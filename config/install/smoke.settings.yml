@@ -5,5 +5,8 @@ suites:
   commerce: true
   search: true
   health: true
+  sitemap: true
+  content: true
+  accessibility: true
 custom_urls: []
 timeout: 10000

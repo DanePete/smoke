@@ -94,6 +94,9 @@ ddev drush smoke:suite webform
 ddev drush smoke:suite commerce
 ddev drush smoke:suite search
 ddev drush smoke:suite health
+ddev drush smoke:suite sitemap
+ddev drush smoke:suite content
+ddev drush smoke:suite accessibility
 ```
 
 ### Test a remote site (post-deploy)
@@ -152,7 +155,7 @@ Access requires the `administer smoke tests` permission.
 |---------|-------|-------------|
 | `drush smoke:run` | `drush smoke` | Run all enabled smoke test suites |
 | `drush smoke:run --target=URL` | `drush smoke --run --target=URL` | Run tests against a remote site |
-| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`, `health`) |
+| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`, `health`, `sitemap`, `content`, `accessibility`) |
 | `drush smoke:suite {id} --target=URL` | — | Run one suite against a remote site |
 | `drush smoke:list` | — | Show detected suites, enabled status, and last results |
 | `drush smoke:setup` | — | Install dependencies, generate config, verify test user |
@@ -163,12 +166,15 @@ Access requires the `administer smoke tests` permission.
 
 | Suite | Triggers When | What's Checked |
 |-------|---------------|----------------|
-| **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JS console errors, no broken images, no mixed content |
+| **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JS console errors, no broken images, no mixed content, 404 page renders (not WSOD), 403 page renders (not WSOD) |
 | **Authentication** | Always | Login form renders, invalid credentials show error, `smoke_bot` can log in and reach the profile page, password reset page exists |
 | **Webform** | `webform` module enabled | Auto-creates a `smoke_test` form, fills all fields, submits, and confirms success |
 | **Commerce** | `commerce` module enabled | Product catalog pages load, cart endpoint responds, checkout endpoint responds, store exists |
 | **Search** | `search_api` or `search` module enabled | Search page loads, search form is present on the page |
 | **Health** | Always | Admin status report has no errors, cron has run recently, CSS/JS assets load without 404s, no PHP errors in dblog, login page cache headers correct |
+| **Sitemap** | `simple_sitemap` or `xmlsitemap` module | `/sitemap.xml` returns 200, contains valid XML with URLs, no PHP errors |
+| **Content** | `page` content type exists | Creates a test Basic Page, verifies it renders, deletes it — full content pipeline check |
+| **Accessibility** | Always | axe-core WCAG 2.1 AA scan on homepage and login page, fails on critical/serious violations, best-practice scan (informational) |
 
 ### Auto-detection
 
@@ -194,6 +200,9 @@ suites:
   commerce: true
   search: true
   health: true
+  sitemap: true
+  content: true
+  accessibility: true
 custom_urls: []
 timeout: 10000
 ```
@@ -426,7 +435,10 @@ thronedigital/smoke
 │       ├── webform.spec.ts            # Webform render, submit, validation
 │       ├── commerce.spec.ts           # Commerce catalog, cart, checkout
 │       ├── search.spec.ts             # Search page and form
-│       └── health.spec.ts             # Admin status, cron, assets, dblog
+│       ├── health.spec.ts             # Admin status, cron, assets, dblog
+│       ├── sitemap.spec.ts            # XML sitemap validation
+│       ├── content.spec.ts            # Content creation round-trip
+│       └── accessibility.spec.ts      # axe-core WCAG 2.1 AA scan
 ├── scripts/
 │   └── host-setup.sh                  # One-command host-side setup
 ├── templates/

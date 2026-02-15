@@ -164,6 +164,20 @@ final class DashboardController extends ControllerBase {
           'url' => $baseUrl . '/admin/reports/dblog',
         ];
         break;
+
+      case 'sitemap':
+        $links[] = [
+          'label' => 'View sitemap',
+          'url' => $baseUrl . '/sitemap.xml',
+        ];
+        break;
+
+      case 'content':
+        $links[] = [
+          'label' => 'Add content',
+          'url' => $baseUrl . '/node/add/page',
+        ];
+        break;
     }
 
     return $links;
@@ -305,6 +319,46 @@ final class DashboardController extends ControllerBase {
           'x-drupal-cache header' => 'Page cache check',
         ];
         $details['requires_auth'] = TRUE;
+        break;
+
+      case 'sitemap':
+        $details['tested_paths'] = ['/sitemap.xml'];
+        $details['checks'] = [
+          '/sitemap.xml returns HTTP 200',
+          'Content-Type is XML',
+          'Contains at least one &lt;loc&gt; or &lt;sitemap&gt; entry',
+          'No PHP errors in response',
+        ];
+        break;
+
+      case 'content':
+        $details['tested_paths'] = ['/node/add/page'];
+        $details['test_user'] = 'smoke_bot';
+        $details['checks'] = [
+          'smoke_bot can access /node/add/page',
+          'Fills title field, submits form',
+          'Verifies new page renders with correct title',
+          'Deletes the test page (cleanup)',
+        ];
+        $details['selectors'] = [
+          'getByLabel("Title")' => 'Node title field',
+          'getByRole("button", {name: "Save"})' => 'Save button',
+          'getByRole("button", {name: "Delete"})' => 'Delete confirmation',
+        ];
+        $details['requires_auth'] = TRUE;
+        break;
+
+      case 'accessibility':
+        $details['tested_paths'] = ['/', '/user/login'];
+        $details['checks'] = [
+          'Homepage: no critical/serious WCAG 2.1 AA violations (axe-core)',
+          'Login page: no critical/serious WCAG 2.1 AA violations',
+          'Homepage: best-practice scan (informational, does not fail)',
+        ];
+        $details['selectors'] = [
+          'axe-core withTags([wcag2a, wcag2aa, wcag21a, wcag21aa])' => 'WCAG conformance check',
+          'axe-core withTags([best-practice])' => 'Best practice suggestions',
+        ];
         break;
     }
 

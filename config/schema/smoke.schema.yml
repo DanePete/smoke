@@ -21,6 +21,18 @@ smoke.settings:
         search:
           type: boolean
           label: 'Search'
+        health:
+          type: boolean
+          label: 'Health'
+        sitemap:
+          type: boolean
+          label: 'Sitemap'
+        content:
+          type: boolean
+          label: 'Content'
+        accessibility:
+          type: boolean
+          label: 'Accessibility'
     custom_urls:
       type: sequence
       label: 'Custom URLs to test'
