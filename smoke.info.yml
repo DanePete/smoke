@@ -1,0 +1,9 @@
+name: Smoke
+type: module
+description: 'Automated smoke testing with Playwright. Auto-detects webform, commerce, search, and more. Dashboard + Drush CLI.'
+core_version_requirement: ^10 || ^11
+package: Development
+configure: smoke.settings
+
+dependencies:
+  - drupal:user

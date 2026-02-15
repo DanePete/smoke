@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the Smoke module.
+ */
+
+use Drupal\user\Entity\Role;
+use Drupal\user\Entity\User;
+
+/**
+ * Implements hook_install().
+ */
+function smoke_install(): void {
+  // Create the smoke_bot role.
+  if (!Role::load('smoke_bot')) {
+    $role = Role::create([
+      'id' => 'smoke_bot',
+      'label' => 'Smoke Test Bot',
+      'weight' => 0,
+    ]);
+    $role->grantPermission('access content');
+    $role->grantPermission('access site reports');
+    $role->save();
+
+    \Drupal::messenger()->addStatus(t('Created "Smoke Test Bot" role.'));
+  }
+
+  // Create the smoke_bot user with a random password.
+  $existing = user_load_by_name('smoke_bot');
+  if (!$existing) {
+    $password = bin2hex(random_bytes(16));
+    $user = User::create([
+      'name' => 'smoke_bot',
+      'mail' => 'smoke_bot@localhost.invalid',
+      'pass' => $password,
+      'status' => 1,
+      'roles' => ['smoke_bot'],
+    ]);
+    $user->save();
+
+    // Store the password in state (never exported to config).
+    \Drupal::state()->set('smoke.bot_password', $password);
+    \Drupal::state()->set('smoke.bot_uid', (int) $user->id());
+
+    \Drupal::messenger()->addStatus(t('Created "smoke_bot" test user.'));
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function smoke_uninstall(): void {
+  // Remove the smoke_bot user.
+  $uid = \Drupal::state()->get('smoke.bot_uid');
+  if ($uid) {
+    $user = User::load($uid);
+    if ($user) {
+      $user->delete();
+    }
+  }
+
+  // Remove the smoke_bot role.
+  $role = Role::load('smoke_bot');
+  if ($role) {
+    $role->delete();
+  }
+
+  // Clean up state.
+  \Drupal::state()->deleteMultiple([
+    'smoke.bot_password',
+    'smoke.bot_uid',
+    'smoke.last_results',
+    'smoke.last_run',
+  ]);
+}

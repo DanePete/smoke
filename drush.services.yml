@@ -1,0 +1,32 @@
+services:
+  smoke.command.run:
+    class: Drupal\smoke\Commands\SmokeRunCommand
+    arguments:
+      - '@smoke.test_runner'
+      - '@smoke.module_detector'
+    tags:
+      - { name: drush.command }
+
+  smoke.command.suite:
+    class: Drupal\smoke\Commands\SmokeSuiteCommand
+    arguments:
+      - '@smoke.test_runner'
+      - '@smoke.module_detector'
+    tags:
+      - { name: drush.command }
+
+  smoke.command.list:
+    class: Drupal\smoke\Commands\SmokeListCommand
+    arguments:
+      - '@smoke.test_runner'
+      - '@smoke.module_detector'
+    tags:
+      - { name: drush.command }
+
+  smoke.command.setup:
+    class: Drupal\smoke\Commands\SmokeSetupCommand
+    arguments:
+      - '@smoke.test_runner'
+      - '@smoke.config_generator'
+    tags:
+      - { name: drush.command }

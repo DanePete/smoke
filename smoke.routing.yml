@@ -1,0 +1,40 @@
+smoke.dashboard:
+  path: '/admin/reports/smoke'
+  defaults:
+    _controller: '\Drupal\smoke\Controller\DashboardController::dashboard'
+    _title: 'Smoke Tests'
+  requirements:
+    _permission: 'administer smoke tests'
+  options:
+    _admin_route: TRUE
+
+smoke.run:
+  path: '/admin/reports/smoke/run'
+  defaults:
+    _controller: '\Drupal\smoke\Controller\DashboardController::run'
+  requirements:
+    _permission: 'administer smoke tests'
+  methods: [POST]
+  options:
+    _admin_route: TRUE
+
+smoke.run_suite:
+  path: '/admin/reports/smoke/run/{suite}'
+  defaults:
+    _controller: '\Drupal\smoke\Controller\DashboardController::runSuite'
+  requirements:
+    _permission: 'administer smoke tests'
+    suite: '[a-z_]+'
+  methods: [POST]
+  options:
+    _admin_route: TRUE
+
+smoke.settings:
+  path: '/admin/config/development/smoke'
+  defaults:
+    _form: '\Drupal\smoke\Form\SettingsForm'
+    _title: 'Smoke Settings'
+  requirements:
+    _permission: 'administer smoke tests'
+  options:
+    _admin_route: TRUE

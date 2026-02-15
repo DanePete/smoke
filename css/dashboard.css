@@ -1,0 +1,352 @@
+/**
+ * @file
+ * Smoke test dashboard styles.
+ *
+ * Designed for Gin admin theme compatibility. Uses CSS custom properties
+ * so it adapts to light/dark mode automatically.
+ */
+
+/* ── Layout ── */
+
+.smoke-dashboard {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+
+/* ── Setup banner ── */
+
+.smoke-banner {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.smoke-banner--setup {
+  background: var(--gin-color-primary-light, #e8f0fe);
+  border: 1px solid var(--gin-color-primary, #1565c0);
+}
+
+.smoke-banner__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.smoke-banner__content p {
+  margin: 0.25rem 0 0.5rem;
+  opacity: 0.85;
+}
+
+.smoke-code {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+/* ── Summary bar ── */
+
+.smoke-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid;
+}
+
+.smoke-summary--passed {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.smoke-summary--warning {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.smoke-summary--failed {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.smoke-summary__stats {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+}
+
+.smoke-stat {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.smoke-stat--failed strong {
+  color: #dc2626;
+}
+
+.smoke-stat--skipped {
+  opacity: 0.6;
+}
+
+.smoke-stat--duration {
+  opacity: 0.5;
+  margin-left: auto;
+}
+
+.smoke-summary__time {
+  font-size: 0.8rem;
+  opacity: 0.55;
+  width: 100%;
+}
+
+/* ── Badges ── */
+
+.smoke-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.smoke-badge--passed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.smoke-badge--failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.smoke-badge--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.smoke-badge--skipped {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.smoke-badge--idle {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+/* ── Actions ── */
+
+.smoke-actions {
+  margin-bottom: 1.5rem;
+}
+
+.smoke-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.4rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.smoke-btn:active {
+  transform: scale(0.97);
+}
+
+.smoke-btn--primary {
+  background: var(--gin-color-primary, #1565c0);
+  color: #fff;
+}
+
+.smoke-btn--primary:hover {
+  background: var(--gin-color-primary-hover, #0d47a1);
+}
+
+.smoke-btn--small {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.smoke-btn--small:hover {
+  background: #e5e7eb;
+}
+
+/* ── Card grid ── */
+
+.smoke-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1rem;
+}
+
+.smoke-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.smoke-card:hover {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.smoke-card--passed {
+  border-left: 3px solid #22c55e;
+}
+
+.smoke-card--failed {
+  border-left: 3px solid #ef4444;
+}
+
+.smoke-card--skipped {
+  border-left: 3px solid #d1d5db;
+  opacity: 0.65;
+}
+
+.smoke-card--not_run {
+  border-left: 3px solid #d1d5db;
+}
+
+.smoke-card__header {
+  padding: 1rem 1.25rem 0.75rem;
+}
+
+.smoke-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.smoke-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.smoke-card__desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  line-height: 1.4;
+}
+
+/* ── Results table ── */
+
+.smoke-card__body {
+  padding: 0 1.25rem;
+}
+
+.smoke-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.smoke-table__row td {
+  padding: 0.4rem 0;
+  border-top: 1px solid #f3f4f6;
+}
+
+.smoke-table__icon {
+  width: 1.5rem;
+  text-align: center;
+}
+
+.smoke-dot {
+  font-weight: 700;
+}
+
+.smoke-dot--passed {
+  color: #22c55e;
+}
+
+.smoke-dot--failed {
+  color: #ef4444;
+}
+
+.smoke-dot--skipped {
+  color: #9ca3af;
+}
+
+.smoke-table__name {
+  color: #374151;
+}
+
+.smoke-table__time {
+  text-align: right;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.smoke-table__error-row td {
+  padding: 0 0 0.5rem;
+}
+
+.smoke-error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: #fef2f2;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #991b1b;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+/* ── Card footer ── */
+
+.smoke-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.smoke-card__count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 520px) {
+  .smoke-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .smoke-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

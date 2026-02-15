@@ -1,0 +1,10 @@
+smoke.dashboard:
+  title: 'Results'
+  route_name: smoke.dashboard
+  base_route: smoke.dashboard
+
+smoke.settings:
+  title: 'Settings'
+  route_name: smoke.settings
+  base_route: smoke.dashboard
+  weight: 10

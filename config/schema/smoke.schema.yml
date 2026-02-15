@@ -1,0 +1,32 @@
+smoke.settings:
+  type: config_object
+  label: 'Smoke test settings'
+  mapping:
+    suites:
+      type: mapping
+      label: 'Enabled test suites'
+      mapping:
+        core_pages:
+          type: boolean
+          label: 'Core pages'
+        auth:
+          type: boolean
+          label: 'Authentication'
+        webform:
+          type: boolean
+          label: 'Webform'
+        commerce:
+          type: boolean
+          label: 'Commerce'
+        search:
+          type: boolean
+          label: 'Search'
+    custom_urls:
+      type: sequence
+      label: 'Custom URLs to test'
+      sequence:
+        type: string
+        label: 'URL path'
+    timeout:
+      type: integer
+      label: 'Test timeout in milliseconds'

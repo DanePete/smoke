@@ -1,0 +1,23 @@
+services:
+  smoke.module_detector:
+    class: Drupal\smoke\Service\ModuleDetector
+    arguments:
+      - '@module_handler'
+      - '@entity_type.manager'
+      - '@config.factory'
+
+  smoke.config_generator:
+    class: Drupal\smoke\Service\ConfigGenerator
+    arguments:
+      - '@smoke.module_detector'
+      - '@state'
+      - '@config.factory'
+      - '@request_stack'
+
+  smoke.test_runner:
+    class: Drupal\smoke\Service\TestRunner
+    arguments:
+      - '@smoke.config_generator'
+      - '@state'
+      - '@module_handler'
+      - '@file_system'

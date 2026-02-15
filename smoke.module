@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Smoke — automated smoke testing for Drupal.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function smoke_help(string $route_name, RouteMatchInterface $route_match): string {
+  if ($route_name === 'help.page.smoke') {
+    return '<p>' . t('Automated smoke testing for Drupal. Auto-detects installed modules (webform, commerce, search_api, etc.), runs Playwright browser tests, and displays results in a dashboard or via Drush.') . '</p>';
+  }
+  return '';
+}
+
+/**
+ * Implements hook_theme().
+ */
+function smoke_theme(): array {
+  return [
+    'smoke_dashboard' => [
+      'variables' => [
+        'suites' => [],
+        'summary' => [],
+        'last_run' => NULL,
+        'is_setup' => FALSE,
+      ],
+      'template' => 'smoke-dashboard',
+    ],
+  ];
+}

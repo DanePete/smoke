@@ -1,0 +1,8 @@
+suites:
+  core_pages: true
+  auth: true
+  webform: true
+  commerce: true
+  search: true
+custom_urls: []
+timeout: 30000

@@ -1,0 +1,6 @@
+smoke.dashboard:
+  title: 'Smoke Tests'
+  description: 'Run automated smoke tests and view results.'
+  route_name: smoke.dashboard
+  parent: system.admin_reports
+  weight: -5

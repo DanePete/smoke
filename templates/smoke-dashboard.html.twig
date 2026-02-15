@@ -1,0 +1,150 @@
+{#
+/**
+ * @file
+ * Smoke test dashboard.
+ *
+ * Variables:
+ *   - suites: array of test suite data
+ *   - summary: { total, passed, failed, skipped, duration }
+ *   - last_run: unix timestamp of last run
+ *   - is_setup: boolean
+ */
+#}
+
+<div class="smoke-dashboard">
+
+  {# ── Setup banner ── #}
+  {% if not is_setup %}
+    <div class="smoke-banner smoke-banner--setup">
+      <div class="smoke-banner__icon">⚙</div>
+      <div class="smoke-banner__content">
+        <strong>{{ 'Playwright is not installed yet.'|t }}</strong>
+        <p>{{ 'Run this command to set up the test environment:'|t }}</p>
+        <code class="smoke-code">drush smoke:setup</code>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Summary bar ── #}
+  {% if summary.total > 0 %}
+    {% set health = summary.failed == 0 ? 'passed' : (summary.failed <= 2 ? 'warning' : 'failed') %}
+    <div class="smoke-summary smoke-summary--{{ health }}">
+      <div class="smoke-summary__badge">
+        {% if health == 'passed' %}
+          <span class="smoke-badge smoke-badge--passed">✓ All Clear</span>
+        {% elseif health == 'warning' %}
+          <span class="smoke-badge smoke-badge--warning">⚠ {{ summary.failed }} Failed</span>
+        {% else %}
+          <span class="smoke-badge smoke-badge--failed">✕ {{ summary.failed }} Failed</span>
+        {% endif %}
+      </div>
+      <div class="smoke-summary__stats">
+        <span class="smoke-stat">
+          <strong>{{ summary.passed }}</strong> passed
+        </span>
+        {% if summary.failed > 0 %}
+          <span class="smoke-stat smoke-stat--failed">
+            <strong>{{ summary.failed }}</strong> failed
+          </span>
+        {% endif %}
+        {% if summary.skipped > 0 %}
+          <span class="smoke-stat smoke-stat--skipped">
+            <strong>{{ summary.skipped }}</strong> skipped
+          </span>
+        {% endif %}
+        <span class="smoke-stat smoke-stat--duration">
+          {{ (summary.duration / 1000)|number_format(1) }}s
+        </span>
+      </div>
+      {% if last_run %}
+        <div class="smoke-summary__time">
+          {{ 'Last run:'|t }} {{ last_run|date('M j, g:ia') }}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# ── Run All button ── #}
+  {% if is_setup %}
+    <div class="smoke-actions">
+      <form method="post" action="{{ path('smoke.run') }}" class="smoke-actions__form">
+        <input type="hidden" name="token" value="{{ csrf_token('smoke') }}" />
+        <button type="submit" class="smoke-btn smoke-btn--primary">
+          {{ 'Run All Tests'|t }}
+        </button>
+      </form>
+    </div>
+  {% endif %}
+
+  {# ── Suite cards ── #}
+  <div class="smoke-grid">
+    {% for id, suite in suites %}
+      <div class="smoke-card smoke-card--{{ suite.status }}">
+        <div class="smoke-card__header">
+          <div class="smoke-card__title-row">
+            <h3 class="smoke-card__title">{{ suite.label }}</h3>
+            {% if suite.status == 'passed' %}
+              <span class="smoke-badge smoke-badge--passed">✓ Passed</span>
+            {% elseif suite.status == 'failed' %}
+              <span class="smoke-badge smoke-badge--failed">✕ Failed</span>
+            {% elseif suite.status == 'skipped' %}
+              <span class="smoke-badge smoke-badge--skipped">— Skipped</span>
+            {% else %}
+              <span class="smoke-badge smoke-badge--idle">○ Not Run</span>
+            {% endif %}
+          </div>
+          <p class="smoke-card__desc">{{ suite.description }}</p>
+        </div>
+
+        {% if suite.tests|length > 0 %}
+          <div class="smoke-card__body">
+            <table class="smoke-table">
+              <tbody>
+                {% for test in suite.tests %}
+                  <tr class="smoke-table__row smoke-table__row--{{ test.status }}">
+                    <td class="smoke-table__icon">
+                      {% if test.status == 'passed' %}
+                        <span class="smoke-dot smoke-dot--passed">✓</span>
+                      {% elseif test.status == 'failed' %}
+                        <span class="smoke-dot smoke-dot--failed">✕</span>
+                      {% else %}
+                        <span class="smoke-dot smoke-dot--skipped">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="smoke-table__name">{{ test.title }}</td>
+                    <td class="smoke-table__time">{{ (test.duration / 1000)|number_format(1) }}s</td>
+                  </tr>
+                  {% if test.error %}
+                    <tr class="smoke-table__error-row">
+                      <td></td>
+                      <td colspan="2">
+                        <pre class="smoke-error">{{ test.error|slice(0, 300) }}</pre>
+                      </td>
+                    </tr>
+                  {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+
+        {% if suite.status != 'skipped' and is_setup %}
+          <div class="smoke-card__footer">
+            <form method="post" action="{{ path('smoke.run_suite', { suite: id }) }}">
+              <input type="hidden" name="token" value="{{ csrf_token('smoke') }}" />
+              <button type="submit" class="smoke-btn smoke-btn--small">
+                {{ 'Run'|t }}
+              </button>
+            </form>
+            {% if suite.passed > 0 or suite.failed > 0 %}
+              <span class="smoke-card__count">
+                {{ suite.passed }}/{{ suite.passed + suite.failed }}
+              </span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+</div>

@@ -1,0 +1,4 @@
+administer smoke tests:
+  title: 'Administer smoke tests'
+  description: 'Run smoke tests, view results, and configure test settings.'
+  restrict access: true
