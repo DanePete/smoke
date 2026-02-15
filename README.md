@@ -12,23 +12,8 @@ Smoke auto-detects what's installed on your site — webform, commerce, search A
 
 ## Install
 
-Add the repository to your project's `composer.json`:
-
-```json
-{
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/DanePete/smoke"
-    }
-  ]
-}
-```
-
-Then install:
-
 ```bash
-ddev composer require drupal/smoke:dev-main
+ddev composer require thronedigital/smoke
 ddev drush en smoke -y
 bash web/modules/contrib/smoke/scripts/host-setup.sh
 ```
@@ -96,7 +81,7 @@ Each URL is checked for HTTP 200 and no PHP fatal errors.
 
 ```bash
 ddev drush pmu smoke -y
-ddev composer remove drupal/smoke
+ddev composer remove thronedigital/smoke
 ```
 
 This removes the test user, role, and all stored results.
