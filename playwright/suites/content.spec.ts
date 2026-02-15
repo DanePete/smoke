@@ -36,8 +36,8 @@ test.describe('Content', () => {
     const title = `Smoke Test ${Date.now()}`;
     await page.getByLabel('Title').fill(title);
 
-    // Submit the form — use the primary save button (first one).
-    await page.locator('#edit-submit').click();
+    // Submit the node form — target the node-form save button specifically.
+    await page.locator('form.node-form input[type="submit"][value="Save"], form.node-form button[value="Save"]').first().click();
     await page.waitForLoadState('domcontentloaded');
 
     // Verify the page loaded successfully.
