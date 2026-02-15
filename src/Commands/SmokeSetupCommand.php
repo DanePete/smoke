@@ -153,7 +153,12 @@ final class SmokeSetupCommand extends DrushCommands {
       // Ensure content permissions are granted (added in later versions).
       $role = \Drupal\user\Entity\Role::load('smoke_bot');
       if ($role) {
-        $contentPerms = ['create page content', 'edit own page content', 'delete own page content'];
+        $contentPerms = [
+          'create page content',
+          'edit own page content',
+          'delete own page content',
+          'administer site configuration',
+        ];
         $changed = FALSE;
         foreach ($contentPerms as $perm) {
           if (!$role->hasPermission($perm)) {

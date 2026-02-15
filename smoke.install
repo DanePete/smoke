@@ -23,6 +23,7 @@ function smoke_install(): void {
     ]);
     $role->grantPermission('access content');
     $role->grantPermission('access site reports');
+    $role->grantPermission('administer site configuration');
     $role->grantPermission('create page content');
     $role->grantPermission('edit own page content');
     $role->grantPermission('delete own page content');
