@@ -2,9 +2,9 @@
  * @file
  * Webform — submits the smoke_test form and confirms it works.
  *
- * The Drupal module checks if webform is enabled, creates the smoke_test
- * form if it doesn't exist, and passes the config here. If the suite
- * shows up in config, the form is ready to test.
+ * The Drupal module auto-creates the smoke_test form locally. On remote
+ * targets we still try to load it — if it exists (config was deployed),
+ * we test it; if it 404s, we skip gracefully.
  */
 
 import { test, expect } from '@playwright/test';
@@ -20,16 +20,27 @@ test.describe('Webform', () => {
   test.skip(!enabled || !form, 'Webform module not enabled or smoke_test form missing.');
 
   test('smoke_test form page loads', async ({ page }) => {
-    test.skip(remote, 'Skipped on remote — smoke_test form is auto-created locally only.');
     const response = await page.goto(form.path);
-    expect(response?.status(), `${form.path} should return 200`).toBe(200);
+    const status = response?.status() ?? 0;
+
+    if (remote && status === 404) {
+      test.skip(true, `smoke_test form not found on remote (${form.path} returned 404). Deploy the webform config or run drush smoke:setup on the remote.`);
+      return;
+    }
+
+    expect(status, `${form.path} should return 200`).toBe(200);
   });
 
   test('submit smoke_test form', async ({ page }) => {
-    test.skip(remote, 'Skipped on remote — smoke_test form is auto-created locally only.');
-
     const response = await page.goto(form.path);
-    expect(response?.status(), `${form.path} should return 200`).toBe(200);
+    const status = response?.status() ?? 0;
+
+    if (remote && status === 404) {
+      test.skip(true, 'smoke_test form not found on remote — skipping submission test.');
+      return;
+    }
+
+    expect(status, `${form.path} should return 200`).toBe(200);
 
     // Fill every field.
     for (const field of form.fields) {
