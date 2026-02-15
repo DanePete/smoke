@@ -229,19 +229,27 @@ final class TestRunner {
 
   /**
    * Maps a Playwright suite title back to a known suite ID.
+   *
+   * Handles both file-based titles ("core-pages.spec.ts") and
+   * describe-block titles ("Core Pages").
    */
   private function resolveSuiteId(string $title): ?string {
     $map = [
       'core-pages' => 'core_pages',
       'Core Pages' => 'core_pages',
+      'core-pages.spec.ts' => 'core_pages',
       'auth' => 'auth',
       'Authentication' => 'auth',
+      'auth.spec.ts' => 'auth',
       'webform' => 'webform',
       'Webform' => 'webform',
+      'webform.spec.ts' => 'webform',
       'commerce' => 'commerce',
       'Commerce' => 'commerce',
+      'commerce.spec.ts' => 'commerce',
       'search' => 'search',
       'Search' => 'search',
+      'search.spec.ts' => 'search',
     ];
     return $map[$title] ?? NULL;
   }
