@@ -40,7 +40,8 @@ final class SmokeSuiteCommand extends DrushCommands {
     if (!$this->testRunner->isSetup()) {
       $projectRoot = DRUPAL_ROOT . '/..';
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
-      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
+        || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
@@ -70,10 +71,15 @@ final class SmokeSuiteCommand extends DrushCommands {
 
     $target = $options['target'] ?: NULL;
     $baseUrl = $target ?: (getenv('DDEV_PRIMARY_URL') ?: '');
+    $remoteCredentials = $this->getRemoteCredentials();
+    $hasTerminus = $remoteCredentials !== NULL;
 
     $this->io()->newLine();
     $this->io()->text("  <options=bold>{$labels[$suite]}</>");
-    if ($target) {
+    if ($target && $hasTerminus) {
+      $this->io()->text("  <fg=magenta;options=bold>REMOTE + TERMINUS</>  {$target}");
+    }
+    elseif ($target) {
       $this->io()->text("  <fg=magenta;options=bold>REMOTE</>  {$target}");
     }
     elseif ($baseUrl) {
@@ -85,7 +91,7 @@ final class SmokeSuiteCommand extends DrushCommands {
     $this->io()->text('  <fg=cyan>⠿</> Running...');
     $this->io()->newLine();
 
-    $results = $this->testRunner->run($suite, $target);
+    $results = $this->testRunner->run($suite, $target, $remoteCredentials);
     $suiteData = $results['suites'][$suite] ?? NULL;
 
     if (!$suiteData) {
@@ -146,11 +152,11 @@ final class SmokeSuiteCommand extends DrushCommands {
 
     // Remote explanation for this suite.
     $target = $options['target'] ?? '';
-    if ($target) {
+    if ($target && !$hasTerminus) {
       $skippedReason = match ($suite) {
-        'auth' => 'smoke_bot login tests auto-skip (no test user on remote)',
-        'health' => 'Admin checks (status report, cron, dblog) auto-skip (no smoke_bot on remote)',
-        'content' => 'Content creation auto-skips (no smoke_bot on remote)',
+        'auth' => 'smoke_bot login tests auto-skip (no test user on remote). Use terminus-test.sh to enable.',
+        'health' => 'Admin checks auto-skip (no smoke_bot on remote). Use terminus-test.sh to enable.',
+        'content' => 'Content creation auto-skips (no smoke_bot on remote). Use terminus-test.sh to enable.',
         'webform' => 'Tries to load smoke_test form — skips on 404. Deploy config to enable.',
         default => '',
       };
@@ -159,8 +165,26 @@ final class SmokeSuiteCommand extends DrushCommands {
         $this->io()->text("  <fg=cyan>Remote note:</> {$skippedReason}");
       }
     }
+    elseif ($target && $hasTerminus) {
+      $this->io()->newLine();
+      $this->io()->text('  <fg=cyan>Terminus:</> Auth enabled — smoke_bot set up on remote.');
+    }
 
     $this->io()->newLine();
+  }
+
+  /**
+   * Reads remote auth credentials from environment variables.
+   *
+   * @return array<string, string>|null
+   */
+  private function getRemoteCredentials(): ?array {
+    $user = getenv('SMOKE_REMOTE_USER') ?: '';
+    $pass = getenv('SMOKE_REMOTE_PASS') ?: '';
+    if ($user && $pass) {
+      return ['user' => $user, 'password' => $pass];
+    }
+    return NULL;
   }
 
 }

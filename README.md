@@ -2,9 +2,11 @@
 
 **Automated smoke testing for Drupal.** One module. One command. Full coverage.
 
-Smoke auto-detects what's installed on your Drupal site — Webform, Commerce, Search API — and runs [Playwright](https://playwright.dev) browser tests against it. Results show up in a clean admin dashboard or via Drush CLI.
+Smoke auto-detects what's installed on your Drupal site — Webform, Commerce, Search API — and runs [Playwright](https://playwright.dev) browser tests against it. Results show up in a clean admin dashboard or via Drush CLI. Built for support teams running Drupal on [DDEV](https://ddev.com).
 
-Built for support teams running Drupal on [DDEV](https://ddev.com).
+For a full description, visit the [project page](https://www.drupal.org/project/smoke).
+
+Submit bug reports and feature suggestions, or track changes in the [issue queue](https://www.drupal.org/project/issues/smoke).
 
 ---
 
@@ -23,6 +25,7 @@ Built for support teams running Drupal on [DDEV](https://ddev.com).
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
 - [Uninstall](#uninstall)
+- [Maintainers](#maintainers)
 - [License](#license)
 
 ---
@@ -33,14 +36,14 @@ Built for support teams running Drupal on [DDEV](https://ddev.com).
 - **DDEV** local development environment
 - **Composer** (managed via DDEV)
 
-The setup script automatically installs the [Lullabot/ddev-playwright](https://github.com/Lullabot/ddev-playwright) addon and Chromium browser inside the DDEV container. No manual browser installation needed.
+The setup script automatically installs the [codingsasi/ddev-playwright](https://github.com/codingsasi/ddev-playwright) addon and Chromium browser inside the DDEV container. No manual browser installation needed.
 
 ---
 
 ## Install
 
 ```bash
-ddev composer require thronedigital/smoke
+ddev composer require drupal/smoke
 ddev drush en smoke -y
 ```
 
@@ -430,7 +433,7 @@ ddev drush smoke
 ## Architecture
 
 ```
-thronedigital/smoke
+smoke/
 ├── src/
 │   ├── Controller/
 │   │   └── DashboardController.php   # Admin UI — results, run tests
@@ -531,10 +534,16 @@ The setup creates a `smoke_bot` user with a random password stored in Drupal sta
 
 ```bash
 ddev drush pmu smoke -y
-ddev composer remove thronedigital/smoke
+ddev composer remove drupal/smoke
 ```
 
-This removes the `smoke_bot` user, the `smoke_tester` role, and all stored test results from Drupal state.
+This removes the `smoke_bot` user, the Smoke Test Bot role, and all stored test results from Drupal state.
+
+---
+
+## Maintainers
+
+- [thronedigital](https://www.drupal.org/u/thronedigital)
 
 ---
 

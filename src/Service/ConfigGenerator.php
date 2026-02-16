@@ -26,10 +26,13 @@ final class ConfigGenerator {
    * @param string|null $targetUrl
    *   Optional remote URL override. When set, tests run against this URL
    *   instead of the local DDEV site, and auth-dependent suites are flagged.
+   * @param array<string, string>|null $remoteCredentials
+   *   Optional remote auth credentials ['user' => ..., 'password' => ...].
+   *   When provided (via Terminus), auth tests run on the remote target.
    *
    * @return array<string, mixed>
    */
-  public function generate(?string $targetUrl = NULL): array {
+  public function generate(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): array {
     $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $customUrls = $settings->get('custom_urls') ?? [];
@@ -40,6 +43,7 @@ final class ConfigGenerator {
     // Use the target URL if provided, otherwise resolve from DDEV / request.
     $isRemote = $targetUrl !== NULL && $targetUrl !== '';
     $baseUrl = $isRemote ? rtrim($targetUrl, '/') : $this->resolveBaseUrl();
+    $hasRemoteAuth = $remoteCredentials !== NULL && !empty($remoteCredentials['password']);
 
     // Get the site title.
     $siteConfig = $this->configFactory->get('system.site');
@@ -56,16 +60,26 @@ final class ConfigGenerator {
     }
 
     // Add auth credentials for test user.
-    // When targeting a remote URL, smoke_bot won't exist there.
-    $botPassword = (string) $this->state->get('smoke.bot_password', '');
-    if (!empty($suites['auth'])) {
-      $suites['auth']['testUser'] = 'smoke_bot';
-      $suites['auth']['testPassword'] = $botPassword;
+    if ($hasRemoteAuth) {
+      // Remote credentials from Terminus — use them for auth on the remote.
+      if (!empty($suites['auth'])) {
+        $suites['auth']['testUser'] = $remoteCredentials['user'] ?? 'smoke_bot';
+        $suites['auth']['testPassword'] = $remoteCredentials['password'];
+      }
+    }
+    else {
+      // Local credentials from state.
+      $botPassword = (string) $this->state->get('smoke.bot_password', '');
+      if (!empty($suites['auth'])) {
+        $suites['auth']['testUser'] = 'smoke_bot';
+        $suites['auth']['testPassword'] = $botPassword;
+      }
     }
 
     return [
       'baseUrl' => $baseUrl,
       'remote' => $isRemote,
+      'remoteAuth' => $hasRemoteAuth,
       'siteTitle' => $siteTitle,
       'timeout' => $timeout,
       'customUrls' => $customUrls,
@@ -82,8 +96,8 @@ final class ConfigGenerator {
    * @return string
    *   Path to the written config file.
    */
-  public function writeConfig(?string $targetUrl = NULL): string {
-    $config = $this->generate($targetUrl);
+  public function writeConfig(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): string {
+    $config = $this->generate($targetUrl, $remoteCredentials);
     $modulePath = $this->getModulePath();
     $configPath = $modulePath . '/playwright/.smoke-config.json';
 

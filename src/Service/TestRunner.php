@@ -36,13 +36,15 @@ final class TestRunner {
    *   Optional single suite to run.
    * @param string|null $targetUrl
    *   Optional remote URL to test against instead of the local DDEV site.
+   * @param array<string, string>|null $remoteCredentials
+   *   Optional remote auth credentials from Terminus.
    *
    * @return array<string, mixed>
    *   Parsed test results.
    */
-  public function run(?string $suite = NULL, ?string $targetUrl = NULL): array {
-    // Write fresh config for Playwright (with optional remote URL override).
-    $this->configGenerator->writeConfig($targetUrl);
+  public function run(?string $suite = NULL, ?string $targetUrl = NULL, ?array $remoteCredentials = NULL): array {
+    // Write fresh config for Playwright (with optional remote URL and credentials).
+    $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
     $playwrightDir = $this->getPlaywrightDir();
     $resultsFile = $playwrightDir . '/results.json';

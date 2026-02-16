@@ -8,17 +8,17 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { loadConfig, isRemote } from '../src/config-reader';
+import { loadConfig, shouldSkipAuth } from '../src/config-reader';
 import { loginAsSmokeBot } from '../src/helpers';
 
 const config = loadConfig();
 const auth = config.suites.auth as any;
-const remote = isRemote();
+const skipAuth = shouldSkipAuth();
 
 test.describe('Health', () => {
 
   test('admin status report has no errors', async ({ page }) => {
-    test.skip(remote, 'Admin checks skipped on remote targets (no smoke_bot).');
+    test.skip(skipAuth, 'Admin checks skipped on remote (use terminus-test.sh to enable).');
     test.skip(!auth?.testUser, 'Auth not configured.');
 
     await loginAsSmokeBot(page, auth.testUser, auth.testPassword);
@@ -41,7 +41,7 @@ test.describe('Health', () => {
   });
 
   test('cron has run recently', async ({ page }) => {
-    test.skip(remote, 'Admin checks skipped on remote targets (no smoke_bot).');
+    test.skip(skipAuth, 'Admin checks skipped on remote (use terminus-test.sh to enable).');
     test.skip(!auth?.testUser, 'Auth not configured.');
 
     await loginAsSmokeBot(page, auth.testUser, auth.testPassword);
@@ -77,7 +77,7 @@ test.describe('Health', () => {
   });
 
   test('no PHP errors in recent log', async ({ page }) => {
-    test.skip(remote, 'Admin checks skipped on remote targets (no smoke_bot).');
+    test.skip(skipAuth, 'Admin checks skipped on remote (use terminus-test.sh to enable).');
     test.skip(!auth?.testUser, 'Auth not configured.');
 
     await loginAsSmokeBot(page, auth.testUser, auth.testPassword);

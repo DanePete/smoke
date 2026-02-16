@@ -39,11 +39,28 @@ final class SmokeRunCommand extends DrushCommands {
   public function run(array $options = ['run' => FALSE, 'target' => '']): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
-      $this->runTests($target);
+      $remoteCredentials = $this->getRemoteCredentials();
+      $this->runTests($target, $remoteCredentials);
       return;
     }
 
     $this->showLanding();
+  }
+
+  /**
+   * Reads remote auth credentials from environment variables.
+   *
+   * Set by terminus-test.sh before invoking drush smoke.
+   *
+   * @return array<string, string>|null
+   */
+  private function getRemoteCredentials(): ?array {
+    $user = getenv('SMOKE_REMOTE_USER') ?: '';
+    $pass = getenv('SMOKE_REMOTE_PASS') ?: '';
+    if ($user && $pass) {
+      return ['user' => $user, 'password' => $pass];
+    }
+    return NULL;
   }
 
   /**
@@ -76,7 +93,8 @@ final class SmokeRunCommand extends DrushCommands {
     if (!$isSetup) {
       $projectRoot = DRUPAL_ROOT . '/..';
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
-      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
+        || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan;options=bold>AUTO-SETUP</>  First run detected — setting up...');
@@ -205,13 +223,16 @@ final class SmokeRunCommand extends DrushCommands {
    *
    * @param string|null $targetUrl
    *   Optional remote URL to test against.
+   * @param array<string, string>|null $remoteCredentials
+   *   Optional remote auth credentials from Terminus.
    */
-  private function runTests(?string $targetUrl = NULL): void {
+  private function runTests(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): void {
     if (!$this->testRunner->isSetup()) {
       // Try auto-setup if DDEV addon is present.
       $projectRoot = DRUPAL_ROOT . '/..';
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
-      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
+        || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
@@ -238,7 +259,12 @@ final class SmokeRunCommand extends DrushCommands {
 
     $this->io()->newLine();
     $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
-    if ($targetUrl) {
+    $hasTerminus = $remoteCredentials !== NULL;
+    if ($targetUrl && $hasTerminus) {
+      $this->io()->text("  <fg=magenta;options=bold>REMOTE + TERMINUS</>  {$displayUrl}");
+      $this->io()->text('  <fg=gray>Auth enabled via Terminus — all suites will run.</>');
+    }
+    elseif ($targetUrl) {
       $this->io()->text("  <fg=magenta;options=bold>REMOTE</>  {$displayUrl}");
       $this->io()->text('  <fg=gray>Auth & health suites will auto-skip (no smoke_bot on remote).</>');
     }
@@ -254,14 +280,14 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text('  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>');
     $this->io()->newLine();
 
-    $results = $this->testRunner->run(NULL, $targetUrl);
-    $this->printResults($results, $targetUrl);
+    $results = $this->testRunner->run(NULL, $targetUrl, $remoteCredentials);
+    $this->printResults($results, $targetUrl, $hasTerminus);
   }
 
   /**
    * Prints a formatted results report.
    */
-  private function printResults(array $results, ?string $targetUrl = NULL): void {
+  private function printResults(array $results, ?string $targetUrl = NULL, bool $hasTerminus = FALSE): void {
     $suites = $results['suites'] ?? [];
     $summary = $results['summary'] ?? [];
 
@@ -327,7 +353,15 @@ final class SmokeRunCommand extends DrushCommands {
     }
 
     // Remote explanation.
-    if ($targetUrl) {
+    if ($targetUrl && $hasTerminus) {
+      $this->io()->newLine();
+      $this->io()->text('  <fg=cyan;options=bold>Terminus remote notes:</>');
+      $this->io()->text('  <fg=gray>Auth enabled:</>     smoke_bot created on remote via Terminus');
+      $this->io()->text('  <fg=gray>All suites ran:</>   Auth, Health (admin), Content, plus anonymous tests');
+      $this->io()->text('  <fg=gray>Webform:</>          Tried to load — skips on 404 (deploy config to enable)');
+      $this->io()->text('  <fg=gray>Cleanup:</>          smoke_bot removed from remote after tests');
+    }
+    elseif ($targetUrl) {
       $this->io()->newLine();
       $this->io()->text('  <fg=cyan;options=bold>Remote test notes:</>');
       $this->io()->text('  <fg=gray>Ran normally:</>     Core Pages, Commerce, Search, Accessibility, Health (assets)');
@@ -335,8 +369,8 @@ final class SmokeRunCommand extends DrushCommands {
       $this->io()->text('  <fg=gray>Webform:</>          Tried to load — skips on 404 (deploy config to enable)');
       $this->io()->text('  <fg=gray>Sitemap:</>          Only if simple_sitemap or xmlsitemap is installed');
       $this->io()->newLine();
-      $this->io()->text('  <fg=gray>To enable webform on remote: export config locally, deploy the</>');
-      $this->io()->text('  <fg=gray>webform.webform.smoke_test.yml, and import config on the remote.</>');
+      $this->io()->text('  <fg=gray>Tip: Use terminus-test.sh to enable auth tests on remote:</>');
+      $this->io()->text('  <fg=gray>  bash web/modules/contrib/smoke/scripts/terminus-test.sh SITE.ENV</>');
     }
 
     // Links.

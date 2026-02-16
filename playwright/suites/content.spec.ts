@@ -8,17 +8,17 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { loadConfig, isSuiteEnabled, isRemote } from '../src/config-reader';
+import { loadConfig, isSuiteEnabled, shouldSkipAuth } from '../src/config-reader';
 import { loginAsSmokeBot } from '../src/helpers';
 
 const config = loadConfig();
 const auth = config.suites.auth as any;
 const enabled = isSuiteEnabled('content');
-const remote = isRemote();
+const skipAuth = shouldSkipAuth();
 
 test.describe('Content', () => {
   test.skip(!enabled, 'Content suite is disabled.');
-  test.skip(remote, 'Content creation skipped on remote targets.');
+  test.skip(skipAuth, 'Content creation skipped on remote (use terminus-test.sh to enable).');
   test.skip(!auth?.testUser, 'Auth not configured — cannot create content.');
 
   test('create, view, and delete a test page', async ({ page }) => {

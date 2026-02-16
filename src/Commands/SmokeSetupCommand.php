@@ -69,11 +69,12 @@ final class SmokeSetupCommand extends DrushCommands {
     if (!$quiet) {
       $this->step('Checking for Playwright addon...');
     }
-    $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yml');
+    $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
+      || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
     if ($hasAddon) {
       if (!$quiet) {
-        $this->ok('Lullabot/ddev-playwright already installed.');
+        $this->ok('ddev-playwright already installed.');
       }
     }
     else {

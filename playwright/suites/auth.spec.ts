@@ -4,12 +4,12 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { isSuiteEnabled, getSuiteConfig, isRemote } from '../src/config-reader';
+import { isSuiteEnabled, getSuiteConfig, shouldSkipAuth } from '../src/config-reader';
 import { loginAsSmokeBot } from '../src/helpers';
 
 const enabled = isSuiteEnabled('auth');
 const authConfig = getSuiteConfig('auth');
-const remote = isRemote();
+const skipAuth = shouldSkipAuth();
 
 test.describe('Authentication', () => {
   test.skip(!enabled, 'Authentication suite is disabled.');
@@ -27,8 +27,8 @@ test.describe('Authentication', () => {
   });
 
   test('invalid login shows error message', async ({ page }) => {
-    // Skip on remote — we don't want to trigger flood protection.
-    test.skip(remote, 'Skipped on remote targets.');
+    // Skip on remote without Terminus auth — no smoke_bot + flood protection risk.
+    test.skip(skipAuth, 'Skipped on remote (no Terminus auth).');
 
     await page.goto('/user/login');
     await page.getByLabel('Username').fill('nonexistent_smoke_user_xyz');
@@ -41,8 +41,8 @@ test.describe('Authentication', () => {
   });
 
   test('smoke_bot can log in', async ({ page }) => {
-    // smoke_bot only exists on the local DDEV site.
-    test.skip(remote, 'smoke_bot does not exist on remote targets.');
+    // smoke_bot only exists locally unless set up via Terminus.
+    test.skip(skipAuth, 'smoke_bot not on remote (use terminus-test.sh to enable).');
 
     const user = (authConfig as any)?.testUser;
     const pass = (authConfig as any)?.testPassword;

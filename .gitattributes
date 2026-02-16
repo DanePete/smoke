@@ -1,0 +1,8 @@
+# Drupal.org packaging — exclude from release tarball
+.git* export-ignore
+.gitignore export-ignore
+.cursor export-ignore
+.editorconfig export-ignore
+.eslintrc* export-ignore
+phpcs.xml* export-ignore
+phpunit.xml* export-ignore
