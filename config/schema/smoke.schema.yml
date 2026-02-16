@@ -33,6 +33,9 @@ smoke.settings:
         accessibility:
           type: boolean
           label: 'Accessibility'
+    webform_id:
+      type: string
+      label: 'Test webform ID'
     custom_urls:
       type: sequence
       label: 'Custom URLs to test'

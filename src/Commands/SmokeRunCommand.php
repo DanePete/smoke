@@ -205,7 +205,8 @@ final class SmokeRunCommand extends DrushCommands {
       $this->io()->text("    Status report: {$baseUrl}/admin/reports/status");
       $hasWebform = !empty($detected['webform']['detected']);
       if ($hasWebform) {
-        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
+        $webformId = (string) ($detected['webform']['form']['id'] ?? \Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
       $this->io()->newLine();
     }
@@ -420,7 +421,8 @@ final class SmokeRunCommand extends DrushCommands {
       $allSuiteResults = $this->testRunner->getLastResults();
       $allSuites = $allSuiteResults['suites'] ?? [];
       if (!$targetUrl && $this->hasWebformResults($allSuites)) {
-        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
+        $webformId = (string) (\Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
     }
 

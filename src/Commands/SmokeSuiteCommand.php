@@ -127,8 +127,9 @@ final class SmokeSuiteCommand extends DrushCommands {
     if ($baseUrl) {
       $this->io()->newLine();
       if ($suite === 'webform') {
-        $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/smoke_test");
-        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
+        $webformId = (string) (\Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/{$webformId}");
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
       elseif ($suite === 'auth') {
         $this->io()->text("  <fg=gray>Login page:</>      {$baseUrl}/user/login");
@@ -157,7 +158,7 @@ final class SmokeSuiteCommand extends DrushCommands {
         'auth' => 'smoke_bot login tests auto-skip (no test user on remote). Use terminus-test.sh to enable.',
         'health' => 'Admin checks auto-skip (no smoke_bot on remote). Use terminus-test.sh to enable.',
         'content' => 'Content creation auto-skips (no smoke_bot on remote). Use terminus-test.sh to enable.',
-        'webform' => 'Tries to load smoke_test form — skips on 404. Deploy config to enable.',
+        'webform' => 'Tries to load configured webform — skips on 404. Deploy config to enable.',
         default => '',
       };
       if ($skippedReason) {

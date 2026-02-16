@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Commands;
 
 use Drupal\smoke\Service\ConfigGenerator;
+use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
@@ -22,6 +23,7 @@ final class SmokeSetupCommand extends DrushCommands {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ConfigGenerator $configGenerator,
+    private readonly ModuleDetector $moduleDetector,
   ) {
     parent::__construct();
   }
@@ -30,6 +32,7 @@ final class SmokeSetupCommand extends DrushCommands {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.config_generator'),
+      $container->get('smoke.module_detector'),
     );
   }
 
@@ -162,7 +165,12 @@ final class SmokeSetupCommand extends DrushCommands {
       }
     }
 
-    // Step 5: Generate config.
+    // Step 5: Configure webform for smoke tests (interactive when Webform enabled).
+    if (!$quiet && \Drupal::moduleHandler()->moduleExists('webform')) {
+      $this->configureWebformId();
+    }
+
+    // Step 6: Generate config.
     if (!$quiet) {
       $this->step('Generating test config...');
     }
@@ -171,7 +179,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
-    // Step 6: Verify test user and ensure permissions.
+    // Step 7: Verify test user and ensure permissions.
     if (!$quiet) {
       $this->step('Verifying smoke_bot test user...');
     }
@@ -208,7 +216,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->warn('smoke_bot not found. Reinstall the module: drush pmu smoke && drush en smoke');
     }
 
-    // Step 7: Sanity check — list tests.
+    // Step 8: Sanity check — list tests.
     if (!$quiet) {
       $this->step('Verifying test suites...');
       $check = new Process(['npx', 'playwright', 'test', '--list'], $playwrightDir);
@@ -283,6 +291,50 @@ final class SmokeSetupCommand extends DrushCommands {
 
   private function warn(string $message): void {
     $this->io()->text("    <fg=yellow>⚠</> {$message}");
+  }
+
+  /**
+   * Asks for webform machine name, creates it if missing, removes smoke_test.
+   */
+  private function configureWebformId(): void {
+    $this->step('Configuring webform for smoke tests...');
+
+    $config = \Drupal::configFactory()->getEditable('smoke.settings');
+    $current = (string) ($config->get('webform_id') ?? 'smoke_test');
+
+    $answer = $this->io()->ask(
+      '  Webform machine name for smoke tests (e.g. contact_us, smoke_test)',
+      $current,
+    );
+    $raw = is_string($answer) ? trim($answer) : $current;
+    $id = $raw !== ''
+      ? strtolower((string) preg_replace('/[^a-z0-9_]/', '_', $raw))
+      : $current;
+    if ($id === '') {
+      $id = 'smoke_test';
+    }
+
+    $created = $this->moduleDetector->createWebformIfMissing($id);
+    if ($created) {
+      $this->ok("Webform <options=bold>{$id}</> created (Name, Email, Message).");
+    }
+    else {
+      $storage = \Drupal::entityTypeManager()->getStorage('webform');
+      if ($storage->load($id)) {
+        $this->ok("Webform <options=bold>{$id}</> already exists.");
+      }
+      else {
+        $this->warn("Webform <options=bold>{$id}</> not found and could not be created.");
+      }
+    }
+
+    if ($id !== 'smoke_test') {
+      $this->moduleDetector->removeSmokeTestWebform();
+      $this->ok('Legacy smoke_test webform removed.');
+    }
+
+    $config->set('webform_id', $id)->save();
+    $this->ok("Smoke will use webform: <options=bold>{$id}</>.");
   }
 
 }

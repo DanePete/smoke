@@ -115,13 +115,17 @@ final class DashboardController extends ControllerBase {
 
     switch ($id) {
       case 'webform':
+        $webformId = (string) ($this->config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        if ($webformId === '') {
+          $webformId = 'smoke_test';
+        }
         $links[] = [
           'label' => 'View form',
-          'url' => $baseUrl . '/webform/smoke_test',
+          'url' => $baseUrl . '/webform/' . $webformId,
         ];
         $links[] = [
           'label' => 'View submissions',
-          'url' => $baseUrl . '/admin/structure/webform/manage/smoke_test/results/submissions',
+          'url' => $baseUrl . '/admin/structure/webform/manage/' . $webformId . '/results/submissions',
         ];
         break;
 

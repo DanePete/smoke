@@ -85,8 +85,15 @@ else
 fi
 
 step "Ensuring system dependencies..."
-ddev exec "sudo npx playwright install-deps chromium 2>&1 | tail -3"
-ok "System dependencies ready."
+# install-deps runs apt-get; use noninteractive so it never prompts (avoids "hang").
+if ddev exec "env DEBIAN_FRONTEND=noninteractive sudo -n npx playwright install-deps chromium 2>&1" ; then
+  ok "System dependencies ready."
+else
+  warn "System deps could not be installed automatically (e.g. no sudo or apt prompt)."
+  echo "    If tests fail with missing libraries, run inside the container:"
+  echo "    ${BOLD}ddev exec \"sudo npx playwright install-deps chromium\"${NC}"
+  echo ""
+fi
 
 # ── Step 5: Install DDEV post-start hook ──
 step "Installing DDEV post-start hook..."

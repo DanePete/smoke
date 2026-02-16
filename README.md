@@ -69,11 +69,15 @@ ddev drush smoke:setup
 
 1. Verifies DDEV is running and Node.js is available
 2. Installs npm dependencies for the Playwright test suites
-3. Downloads the **Chromium** browser (~180 MiB one-time download) and its system dependencies
-4. Generates the test configuration — scans your site for installed modules, webforms, commerce stores, search pages, etc.
-5. Creates a `smoke_bot` test user and role for authentication tests
-6. Verifies all test suites are wired up
-7. Installs a DDEV post-start hook (`config.smoke.yaml`) that auto-regenerates config on `ddev start`
+3. Downloads the **Chromium** browser (~180 MiB one-time download)
+4. Tries to install Chromium’s system dependencies (e.g. `libnss3`, `libatk1.0-0`) via `npx playwright install-deps chromium` in non-interactive mode. If that step fails (e.g. no sudo, or your image doesn’t allow it), the script continues and prints the manual command to run.
+5. **When the Webform module is enabled:** prompts for the **webform machine name** to use for smoke tests (e.g. `contact_us`, `smoke_test`). If that webform doesn’t exist, it is created with standard Name, Email, and Message fields. The legacy `smoke_test` webform is removed when you choose a different ID so the test uses your custom form.
+6. Generates the test configuration — scans your site for installed modules, webforms, commerce stores, search pages, etc.
+7. Creates a `smoke_bot` test user and role for authentication tests
+8. Verifies all test suites are wired up
+9. Installs a DDEV post-start hook (`config.smoke.yaml`) that auto-regenerates config on `ddev start`
+
+If the script appears to hang, it has been updated so the system-deps step no longer waits for input. If you see a warning that system deps could not be installed, run inside the container: `ddev exec "sudo npx playwright install-deps chromium"`. When running with `--silent` (e.g. from the DDEV post-start hook), the webform prompt is skipped and the existing setting is kept.
 
 ### What gets installed where
 
@@ -170,20 +174,20 @@ When using `--target`, tests run from your local DDEV Playwright install against
 |-----------|---------------|-----|
 | **Runs normally** | Core Pages (all 8), Commerce, Search, Accessibility, Health (CSS/JS assets, login page check) | These are anonymous — no login required |
 | **Auto-skips** | Auth (invalid login, smoke_bot login), Health (admin status, cron, dblog), Content (create/delete node) | These need `smoke_bot` which only exists locally |
-| **Tries first, skips on 404** | Webform (smoke_test form) | The form is auto-created locally; if you deploy the config to Pantheon it will run there too |
+| **Tries first, skips on 404** | Webform (configured form, default smoke_test) | The default form is auto-created locally; deploy the webform config to run on remote too |
 | **Skips if module missing** | Sitemap | Only runs when `simple_sitemap` or `xmlsitemap` is installed |
 
 #### Making webform tests work on remote
 
-The `smoke_test` webform is auto-created in your local DDEV environment. By default it won't exist on Pantheon. The test is smart about this — it tries to load the form and gracefully skips if it gets a 404.
+The configured webform (default `smoke_test`) is auto-created locally when set to `smoke_test`; it won’t exist on Pantheon unless you deploy it. The test tries to load the form and skips gracefully on 404.
 
 To make webform tests run on Pantheon too:
 
 1. Export config locally: `ddev drush config:export -y`
-2. Commit the exported `webform.webform.smoke_test.yml` in your `config/sync` directory
+2. Commit the exported webform config (e.g. `webform.webform.smoke_test.yml` or your configured `webform.webform.{id}.yml`) in `config/sync`
 3. Deploy to Pantheon and import config: `drush config:import -y`
 
-Once the `smoke_test` form exists on the remote, webform tests will automatically start passing there — no code changes needed.
+Once that webform exists on the remote, webform tests will start passing there.
 
 ### List detected suites
 
@@ -212,6 +216,7 @@ Visit **Reports > Smoke Tests** (`/admin/reports/smoke`) to:
 Visit **Configuration > Development > Smoke** (`/admin/config/development/smoke`) to:
 
 - Enable or disable individual test suites
+- Set the **test webform ID** (default `smoke_test`) so the Webform suite tests your agency or company form — see [Configuration](#configuration)
 - Add custom URLs to test (see [Custom URLs](#custom-urls))
 - Adjust the per-test timeout
 
@@ -242,7 +247,7 @@ Access requires the `administer smoke tests` permission.
 |-------|---------------|----------------|
 | **Core Pages** | Always | Homepage returns 200, login page returns 200, no PHP fatal errors, no JS console errors, no broken images, no mixed content, 404 page renders (not WSOD), 403 page renders (not WSOD) |
 | **Authentication** | Always | Login form renders, invalid credentials show error, `smoke_bot` can log in and reach the profile page, password reset page exists |
-| **Webform** | `webform` module enabled | Auto-creates a `smoke_test` form, fills all fields, submits, and confirms success |
+| **Webform** | `webform` module enabled | Submits the configured webform (default `smoke_test`, or set in settings), fills all fields, submits, and confirms success |
 | **Commerce** | `commerce` module enabled | Product catalog pages load, cart endpoint responds, checkout endpoint responds, store exists |
 | **Search** | `search_api` or `search` module enabled | Search page loads, search form is present on the page |
 | **Health** | Always | Admin status report has no errors, cron has run recently, CSS/JS assets load without 404s, no PHP errors in dblog, login page cache headers correct |
@@ -254,9 +259,9 @@ Access requires the `administer smoke tests` permission.
 
 Suites are **automatically detected** based on installed modules. If Commerce isn't installed, the Commerce suite is skipped entirely — no errors, no configuration needed.
 
-### Webform auto-creation
+### Webform suite and configurable form
 
-When the Webform module is detected, Smoke automatically creates a `smoke_test` webform with Name, Email, and Message fields. This ensures there's always a known, predictable form to test against.
+When the Webform module is detected, Smoke runs tests against the webform set in **Test webform ID** (Configuration > Development > Smoke). Default is `smoke_test`: if that form doesn’t exist, Smoke creates it (Name, Email, Message). You can set any other webform machine name (e.g. `contact_us`) to test your own form; that form must already exist and be open.
 
 ---
 
@@ -277,11 +282,21 @@ suites:
   sitemap: true
   content: true
   accessibility: true
+webform_id: smoke_test
 custom_urls: []
 timeout: 10000
 ```
 
 Edit via the admin UI at `/admin/config/development/smoke` or export/import with Drupal's config system.
+
+### Test webform ID
+
+The **Webform** suite submits a single webform and checks for success. By default it uses the `smoke_test` webform (auto-created if missing). You can point it at any existing webform so the test is tailored to your agency or company:
+
+- **`smoke_test`** (default) — Smoke creates this form if it doesn’t exist (Name, Email, Message).
+- **Any other machine name** (e.g. `contact_us`, `quote_request`) — Smoke uses that webform if it exists and is open; no auto-creation.
+
+Set **Test webform ID** in Configuration > Development > Smoke, or in config as `webform_id: contact_us`.
 
 ### Test timeout
 
@@ -565,15 +580,21 @@ Run setup: `ddev drush smoke:setup`
 
 If that fails, try the host script: `bash web/modules/contrib/smoke/scripts/host-setup.sh`
 
-### browserType.launch errors
+### browserType.launch errors / "Host system is missing dependencies"
 
-This means Chromium's system dependencies are missing. Fix with:
+Chromium needs system libraries (e.g. `libnss3`, `libatk1.0-0`) in the container. Install them with:
 
 ```bash
 ddev exec "sudo npx playwright install-deps chromium"
 ```
 
-Or re-run setup which handles this automatically: `ddev drush smoke:setup`
+If `sudo` prompts for a password or the host-setup script skipped this step, run the command above manually. On some Linux hosts you may need:
+
+```bash
+ddev exec "env DEBIAN_FRONTEND=noninteractive sudo npx playwright install-deps chromium"
+```
+
+Re-running `bash web/modules/contrib/smoke/scripts/host-setup.sh` or `ddev drush smoke:setup` will also attempt to install these deps (non-interactively); if that fails, use the manual command above.
 
 ### Sitemap tests fail with "contains at least one URL"
 
