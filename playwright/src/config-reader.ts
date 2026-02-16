@@ -34,6 +34,7 @@ export interface SmokeSuiteConfig {
 export interface SmokeConfig {
   baseUrl: string;
   remote: boolean;
+  remoteAuth: boolean;
   siteTitle: string;
   timeout: number;
   customUrls: string[];
@@ -80,11 +81,28 @@ export function getSuiteConfig(suiteId: string): SmokeSuiteConfig | null {
 
 /**
  * Returns true when testing a remote URL (not the local DDEV site).
- *
- * Auth-dependent tests should skip when remote, because smoke_bot
- * doesn't exist on the remote server.
  */
 export function isRemote(): boolean {
   const config = loadConfig();
   return !!config.remote;
+}
+
+/**
+ * Returns true when remote auth credentials are available (via Terminus).
+ *
+ * When true, auth-dependent tests should run even on remote targets
+ * because smoke_bot was set up on the remote via terminus.
+ */
+export function hasRemoteAuth(): boolean {
+  const config = loadConfig();
+  return !!config.remoteAuth;
+}
+
+/**
+ * Returns true when auth-dependent tests should be skipped.
+ *
+ * Skips on remote targets UNLESS Terminus provided remote credentials.
+ */
+export function shouldSkipAuth(): boolean {
+  return isRemote() && !hasRemoteAuth();
 }

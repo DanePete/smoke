@@ -6,7 +6,7 @@
 #   bash web/modules/contrib/smoke/scripts/host-setup.sh
 #
 # This script:
-#   1. Installs the Lullabot/ddev-playwright DDEV addon
+#   1. Installs the codingsasi/ddev-playwright DDEV addon
 #   2. Fixes the expired Sury PHP GPG key in the Docker build
 #   3. Installs Playwright browsers (rebuilds the DDEV container)
 #   4. Runs drush smoke:setup to finish configuration
@@ -39,11 +39,11 @@ ok "DDEV project found."
 
 # ── Step 1: Install the Playwright addon ──
 step "Checking for Playwright addon..."
-if [ -f ".ddev/config.playwright.yml" ]; then
-  ok "Lullabot/ddev-playwright already installed."
+if [ -f ".ddev/config.playwright.yaml" ] || [ -f ".ddev/config.playwright.yml" ]; then
+  ok "ddev-playwright already installed."
 else
-  echo "    Installing Lullabot/ddev-playwright..."
-  ddev add-on get Lullabot/ddev-playwright
+  echo "    Installing codingsasi/ddev-playwright..."
+  ddev add-on get codingsasi/ddev-playwright
   ok "Addon installed."
 fi
 
