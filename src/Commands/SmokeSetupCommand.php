@@ -65,49 +65,24 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('DDEV detected.');
     }
 
-    // Step 2: Install DDEV Playwright addon if not present.
+    // Step 2: Check Node.js is available.
     if (!$quiet) {
-      $this->step('Checking for Playwright addon...');
+      $this->step('Checking Node.js...');
     }
-    $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
-      || is_file($projectRoot . '/.ddev/config.playwright.yml');
-
-    if ($hasAddon) {
+    $nodeCheck = new Process(['node', '--version'], $projectRoot);
+    $nodeCheck->setTimeout(10);
+    $nodeCheck->run();
+    if (!$nodeCheck->isSuccessful()) {
       if (!$quiet) {
-        $this->ok('ddev-playwright already installed.');
-      }
-    }
-    else {
-      if (!$quiet) {
-        $this->io()->newLine();
-        $this->io()->text('  <fg=yellow;options=bold>Playwright not installed yet.</>');
-        $this->io()->text('  Run this single command on your <options=bold>host machine</>:');
-        $this->io()->newLine();
-        $scriptPath = str_replace($projectRoot . '/', '', $modulePath . '/scripts/host-setup.sh');
-        $this->io()->text("    <options=bold>bash {$scriptPath}</>");
-        $this->io()->newLine();
-        $this->io()->text('  This installs the DDEV addon, browsers, and finishes setup automatically.');
-        $this->io()->newLine();
+        $this->io()->error('Node.js is not installed. Install Node.js 18+ to continue.');
       }
       return;
     }
-
-    // Step 3: Check browsers are installed.
     if (!$quiet) {
-      $this->step('Checking Playwright browsers...');
-    }
-    $versionCheck = new Process(['npx', 'playwright', '--version'], $playwrightDir);
-    $versionCheck->setTimeout(15);
-    $versionCheck->run();
-    if ($versionCheck->isSuccessful() && !$quiet) {
-      $version = trim($versionCheck->getOutput());
-      $this->ok("Playwright {$version}");
-    }
-    elseif (!$quiet) {
-      $this->warn('Playwright CLI not found. Installing npm deps first...');
+      $this->ok('Node.js ' . trim($nodeCheck->getOutput()));
     }
 
-    // Step 4: Install npm dependencies.
+    // Step 3: Install npm dependencies.
     if (!$quiet) {
       $this->step('Installing npm dependencies...');
     }
@@ -131,6 +106,60 @@ final class SmokeSetupCommand extends DrushCommands {
         $this->io()->error('npm install failed: ' . $npm->getErrorOutput());
       }
       return;
+    }
+
+    // Step 4: Install Chromium browser + system deps (if missing).
+    if (!$quiet) {
+      $this->step('Checking Chromium browser...');
+    }
+    $browserInstalled = $this->isBrowserInstalled($playwrightDir);
+    if ($browserInstalled) {
+      if (!$quiet) {
+        $this->ok('Chromium already installed.');
+      }
+    }
+    else {
+      if (!$quiet) {
+        $this->io()->text('    Installing Chromium (one-time download, ~180 MiB)...');
+      }
+
+      // Install Chromium browser binary.
+      $installBrowser = new Process(
+        ['npx', 'playwright', 'install', 'chromium'],
+        $playwrightDir,
+      );
+      $installBrowser->setTimeout(300);
+      $installBrowser->run();
+      if (!$installBrowser->isSuccessful()) {
+        if (!$quiet) {
+          $this->io()->error('Browser install failed: ' . $installBrowser->getErrorOutput());
+        }
+        return;
+      }
+      if (!$quiet) {
+        $this->ok('Chromium browser installed.');
+      }
+
+      // Install system dependencies (needs sudo — available in DDEV).
+      if (!$quiet) {
+        $this->step('Installing system dependencies...');
+      }
+      $installDeps = new Process(
+        ['sudo', 'npx', 'playwright', 'install-deps', 'chromium'],
+        $playwrightDir,
+      );
+      $installDeps->setTimeout(120);
+      $installDeps->run();
+      if ($installDeps->isSuccessful()) {
+        if (!$quiet) {
+          $this->ok('System dependencies installed.');
+        }
+      }
+      else {
+        if (!$quiet) {
+          $this->warn('Could not install system deps (may need manual install): sudo npx playwright install-deps chromium');
+        }
+      }
     }
 
     // Step 5: Generate config.
@@ -207,6 +236,41 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->io()->text('    <options=bold>drush smoke:suite webform</>  Run one suite');
       $this->io()->newLine();
     }
+  }
+
+  /**
+   * Checks if Chromium is installed in the Playwright cache.
+   */
+  private function isBrowserInstalled(string $playwrightDir): bool {
+    // Quick check: try to launch a browser validation.
+    $check = new Process(
+      ['npx', 'playwright', 'install', '--dry-run', 'chromium'],
+      $playwrightDir,
+    );
+    $check->setTimeout(15);
+    $check->run();
+    $output = $check->getOutput() . $check->getErrorOutput();
+
+    // If dry-run says "browser is already installed" or exits 0 with no
+    // download needed, the browser is present. Fall back to checking the
+    // cache directory directly.
+    if ($check->isSuccessful() && str_contains($output, 'already installed')) {
+      return TRUE;
+    }
+
+    // Direct cache check: look for chromium-* in the Playwright cache.
+    $cacheDir = getenv('PLAYWRIGHT_BROWSERS_PATH')
+      ?: (getenv('HOME') . '/.cache/ms-playwright');
+    if (is_dir($cacheDir)) {
+      $entries = @scandir($cacheDir) ?: [];
+      foreach ($entries as $entry) {
+        if (str_starts_with($entry, 'chromium-') && is_dir($cacheDir . '/' . $entry)) {
+          return TRUE;
+        }
+      }
+    }
+
+    return FALSE;
   }
 
   private function step(string $message): void {

@@ -91,20 +91,17 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Status — auto-run setup if possible.
     if (!$isSetup) {
-      $projectRoot = DRUPAL_ROOT . '/..';
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
-      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
-        || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
-      if ($isDdev && $hasAddon) {
+      if ($isDdev) {
         $this->io()->text('  <fg=cyan;options=bold>AUTO-SETUP</>  First run detected — setting up...');
         $this->io()->newLine();
 
         $process = new \Symfony\Component\Process\Process(
           ['drush', 'smoke:setup'],
-          $projectRoot,
+          DRUPAL_ROOT . '/..',
         );
-        $process->setTimeout(180);
+        $process->setTimeout(300);
         $process->run(function ($type, $buffer): void {
           $this->io()->write($buffer);
         });
@@ -112,7 +109,7 @@ final class SmokeRunCommand extends DrushCommands {
         // Re-check after setup.
         if (!$this->testRunner->isSetup()) {
           $this->io()->text('  <fg=red>Setup did not complete. Run manually:</>');
-          $this->io()->text('  <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
+          $this->io()->text('  <options=bold>ddev drush smoke:setup</>');
           $this->io()->newLine();
           return;
         }
@@ -123,12 +120,7 @@ final class SmokeRunCommand extends DrushCommands {
       }
       else {
         $this->io()->text('  <fg=yellow;options=bold>SETUP NEEDED</>');
-        if (!$hasAddon) {
-          $this->io()->text('  Run: <options=bold>bash web/modules/contrib/smoke/scripts/host-setup.sh</>');
-        }
-        else {
-          $this->io()->text('  Run: <options=bold>ddev drush smoke:setup</>');
-        }
+        $this->io()->text('  Run: <options=bold>ddev drush smoke:setup</>');
         $this->io()->newLine();
         return;
       }
@@ -228,27 +220,24 @@ final class SmokeRunCommand extends DrushCommands {
    */
   private function runTests(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): void {
     if (!$this->testRunner->isSetup()) {
-      // Try auto-setup if DDEV addon is present.
-      $projectRoot = DRUPAL_ROOT . '/..';
+      // Try auto-setup inside DDEV.
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
-      $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
-        || is_file($projectRoot . '/.ddev/config.playwright.yml');
 
-      if ($isDdev && $hasAddon) {
+      if ($isDdev) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
         $process = new \Symfony\Component\Process\Process(
           ['drush', 'smoke:setup'],
-          $projectRoot,
+          DRUPAL_ROOT . '/..',
         );
-        $process->setTimeout(180);
+        $process->setTimeout(300);
         $process->run(function ($type, $buffer): void {
           $this->io()->write($buffer);
         });
       }
 
       if (!$this->testRunner->isSetup()) {
-        $this->io()->error('Playwright is not set up. Run: bash web/modules/contrib/smoke/scripts/host-setup.sh');
+        $this->io()->error('Playwright is not set up. Run: ddev drush smoke:setup');
         return;
       }
     }

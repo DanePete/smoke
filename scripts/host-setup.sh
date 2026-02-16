@@ -6,10 +6,13 @@
 #   bash web/modules/contrib/smoke/scripts/host-setup.sh
 #
 # This script:
-#   1. Installs the codingsasi/ddev-playwright DDEV addon
-#   2. Fixes the expired Sury PHP GPG key in the Docker build
-#   3. Installs Playwright browsers (rebuilds the DDEV container)
-#   4. Runs drush smoke:setup to finish configuration
+#   1. Verifies DDEV is running
+#   2. Installs npm dependencies inside the container
+#   3. Installs Chromium browser + system deps (one-time)
+#   4. Installs a DDEV post-start hook for auto-config
+#   5. Runs drush smoke:setup to finish configuration
+#
+# No third-party DDEV addons required.
 #
 set -euo pipefail
 
@@ -30,80 +33,60 @@ echo -e "  ${BOLD}Smoke — Full Setup${NC}"
 echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ── Verify we're in a DDEV project ──
+# ── Step 1: Verify DDEV project ──
 step "Checking for DDEV project..."
 if [ ! -d ".ddev" ]; then
   fail "No .ddev/ directory found. Run this from your project root."
 fi
 ok "DDEV project found."
 
-# ── Step 1: Install the Playwright addon ──
-step "Checking for Playwright addon..."
-if [ -f ".ddev/config.playwright.yaml" ] || [ -f ".ddev/config.playwright.yml" ]; then
-  ok "ddev-playwright already installed."
-else
-  echo "    Installing codingsasi/ddev-playwright..."
-  ddev add-on get codingsasi/ddev-playwright
-  ok "Addon installed."
+# Check DDEV is running.
+step "Checking DDEV is running..."
+if ! ddev describe > /dev/null 2>&1; then
+  echo "    Starting DDEV..."
+  ddev start
 fi
+ok "DDEV is running."
 
-# ── Step 2: Fix expired Sury PHP GPG key ──
-step "Patching Sury PHP GPG key in Docker build..."
-DOCKERFILE=".ddev/web-build/disabled.Dockerfile.playwright"
-
-if [ -f "$DOCKERFILE" ]; then
-  if grep -q "debsuryorg-archive-keyring" "$DOCKERFILE"; then
-    ok "GPG key fix already applied."
-  else
-    # Insert the key refresh before 'RUN apt-get update'
-    sed -i.bak '/^RUN apt-get update$/i\
-# Refresh expired Sury PHP GPG key.\
-RUN curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb \\\
-  \&\& dpkg -i /tmp/debsuryorg-archive-keyring.deb \\\
-  \&\& rm /tmp/debsuryorg-archive-keyring.deb\
-' "$DOCKERFILE"
-    rm -f "${DOCKERFILE}.bak"
-    ok "GPG key fix applied."
-  fi
-else
-  warn "Dockerfile not found at $DOCKERFILE — skipping patch."
-fi
-
-# ── Step 3: Create Playwright stub for DDEV addon ──
-step "Preparing Playwright for DDEV..."
+# ── Step 2: Resolve Smoke module's playwright directory ──
+step "Locating Smoke module..."
 SMOKE_PW_DIR=$(ddev exec drush eval "echo DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke') . '/playwright';" 2>/dev/null || echo "")
 
 if [ -z "$SMOKE_PW_DIR" ]; then
-  # Fallback: find it manually.
-  SMOKE_PW_DIR="web/modules/contrib/smoke/playwright"
-  if [ ! -d "$SMOKE_PW_DIR" ]; then
-    SMOKE_PW_DIR="web/modules/custom/smoke/playwright"
-  fi
+  # Fallback: common paths.
+  for candidate in "web/modules/contrib/smoke/playwright" "web/modules/custom/smoke/playwright" "docroot/modules/contrib/smoke/playwright"; do
+    if ddev exec "test -d /var/www/html/$candidate" 2>/dev/null; then
+      SMOKE_PW_DIR="/var/www/html/$candidate"
+      break
+    fi
+  done
 fi
 
-# The DDEV addon needs test/playwright/ with a package.json to install browsers.
-# Create a minimal stub that shares the same @playwright/test version.
-if [ ! -d "test/playwright" ]; then
-  mkdir -p test/playwright
-  cat > test/playwright/package.json <<'PKGJSON'
-{
-  "name": "smoke-playwright-stub",
-  "private": true,
-  "description": "Stub for ddev-playwright addon. Actual tests live in the smoke module.",
-  "devDependencies": {
-    "@playwright/test": "^1.50.0"
-  }
-}
-PKGJSON
-  ok "Created test/playwright stub for DDEV addon."
+if [ -z "$SMOKE_PW_DIR" ]; then
+  fail "Could not find the Smoke module. Is it installed? (composer require drupal/smoke)"
+fi
+ok "Found: $SMOKE_PW_DIR"
+
+# ── Step 3: Install npm dependencies ──
+step "Installing npm dependencies..."
+ddev exec "cd $SMOKE_PW_DIR && npm install"
+ok "Dependencies installed."
+
+# ── Step 4: Install Chromium browser + system deps ──
+step "Checking for Chromium browser..."
+BROWSER_INSTALLED=$(ddev exec "ls -d \$HOME/.cache/ms-playwright/chromium-* 2>/dev/null | head -1" || echo "")
+
+if [ -n "$BROWSER_INSTALLED" ]; then
+  ok "Chromium already installed."
 else
-  ok "test/playwright already exists."
+  step "Installing Chromium browser (~180 MiB one-time download)..."
+  ddev exec "cd $SMOKE_PW_DIR && npx playwright install chromium"
+  ok "Chromium installed."
 fi
 
-# ── Step 4: Install Playwright browsers ──
-step "Installing Playwright browsers (rebuilds container, 1-3 min)..."
-ddev install-playwright
-ok "Browsers installed."
+step "Ensuring system dependencies..."
+ddev exec "sudo npx playwright install-deps chromium 2>&1 | tail -3"
+ok "System dependencies ready."
 
 # ── Step 5: Install DDEV post-start hook ──
 step "Installing DDEV post-start hook..."
