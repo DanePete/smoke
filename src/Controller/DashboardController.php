@@ -170,6 +170,11 @@ final class DashboardController extends ControllerBase {
           'label' => 'View sitemap',
           'url' => $baseUrl . '/sitemap.xml',
         ];
+        $links[] = [
+          'label' => 'Regenerate sitemap',
+          'url' => '__sitemap_regen__',
+          'action' => 'sitemap_regen',
+        ];
         break;
 
       case 'content':
@@ -452,6 +457,50 @@ final class DashboardController extends ControllerBase {
           '@time' => $duration,
         ]));
       }
+    }
+
+    return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
+  }
+
+  /**
+   * Regenerates the XML sitemap.
+   *
+   * Supports simple_sitemap and xmlsitemap modules.
+   */
+  public function sitemapRegen(Request $request): RedirectResponse {
+    if (!$this->csrfToken($request)) {
+      $this->messenger()->addError($this->t('Invalid request. Please try again.'));
+      return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
+    }
+
+    $moduleHandler = \Drupal::moduleHandler();
+
+    if ($moduleHandler->moduleExists('simple_sitemap')) {
+      try {
+        /** @var \Drupal\simple_sitemap\Manager\Generator $generator */
+        $generator = \Drupal::service('simple_sitemap.generator');
+        $generator->generate();
+        $this->messenger()->addStatus($this->t('Sitemap regenerated successfully.'));
+      }
+      catch (\Exception $e) {
+        $this->messenger()->addError($this->t('Sitemap generation failed: @error', [
+          '@error' => $e->getMessage(),
+        ]));
+      }
+    }
+    elseif ($moduleHandler->moduleExists('xmlsitemap')) {
+      try {
+        \Drupal::service('xmlsitemap.generator')->regenerate();
+        $this->messenger()->addStatus($this->t('Sitemap regenerated successfully.'));
+      }
+      catch (\Exception $e) {
+        $this->messenger()->addError($this->t('Sitemap generation failed: @error', [
+          '@error' => $e->getMessage(),
+        ]));
+      }
+    }
+    else {
+      $this->messenger()->addWarning($this->t('No sitemap module detected (simple_sitemap or xmlsitemap).'));
     }
 
     return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());

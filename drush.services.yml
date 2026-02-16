@@ -30,3 +30,11 @@ services:
       - '@smoke.config_generator'
     tags:
       - { name: drush.command }
+
+  smoke.command.fix:
+    class: Drupal\smoke\Commands\SmokeFixCommand
+    arguments:
+      - '@smoke.test_runner'
+      - '@module_handler'
+    tags:
+      - { name: drush.command }

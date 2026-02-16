@@ -24,10 +24,9 @@ test.describe('Sitemap', () => {
     ).toBeTruthy();
   });
 
-  test('sitemap.xml contains at least one URL', async ({ page }) => {
-    await page.goto('/sitemap.xml');
-
-    const body = await page.locator('body').textContent() ?? '';
+  test('sitemap.xml contains at least one URL', async ({ request }) => {
+    const response = await request.get('/sitemap.xml');
+    const body = await response.text();
     const hasUrls =
       body.includes('<loc>') ||
       body.includes('<url>') ||

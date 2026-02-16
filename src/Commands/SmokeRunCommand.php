@@ -8,6 +8,7 @@ use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -211,7 +212,10 @@ final class SmokeRunCommand extends DrushCommands {
   }
 
   /**
-   * Runs all tests and prints results.
+   * Runs all tests with a live progress bar.
+   *
+   * Executes suites sequentially so results stream in real-time
+   * instead of blocking until all tests finish.
    *
    * @param string|null $targetUrl
    *   Optional remote URL to test against.
@@ -220,7 +224,6 @@ final class SmokeRunCommand extends DrushCommands {
    */
   private function runTests(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): void {
     if (!$this->testRunner->isSetup()) {
-      // Try auto-setup inside DDEV.
       $isDdev = getenv('IS_DDEV_PROJECT') === 'true';
 
       if ($isDdev) {
@@ -242,13 +245,14 @@ final class SmokeRunCommand extends DrushCommands {
       }
     }
 
+    // Header.
     $siteConfig = \Drupal::config('system.site');
     $siteName = (string) $siteConfig->get('name');
     $displayUrl = $targetUrl ?: (getenv('DDEV_PRIMARY_URL') ?: 'unknown');
+    $hasTerminus = $remoteCredentials !== NULL;
 
     $this->io()->newLine();
     $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
-    $hasTerminus = $remoteCredentials !== NULL;
     if ($targetUrl && $hasTerminus) {
       $this->io()->text("  <fg=magenta;options=bold>REMOTE + TERMINUS</>  {$displayUrl}");
       $this->io()->text('  <fg=gray>Auth enabled via Terminus — all suites will run.</>');
@@ -262,67 +266,104 @@ final class SmokeRunCommand extends DrushCommands {
     }
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     $this->io()->newLine();
-    $this->io()->text('  <fg=gray>        (  )</>');
-    $this->io()->text('  <fg=gray>       ) (</>');
-    $this->io()->text('  <fg=gray>      (  )</>');
-    $this->io()->text('  <fg=white;options=bold>    ,___,</>');
-    $this->io()->text('  <fg=white;options=bold>    |   |</>  <fg=cyan>Running tests...</>');
-    $this->io()->newLine();
 
-    $results = $this->testRunner->run(NULL, $targetUrl, $remoteCredentials);
-    $this->printResults($results, $targetUrl, $hasTerminus);
-  }
+    // Determine which suites to run.
+    $detected = $this->moduleDetector->detect();
+    $settings = \Drupal::config('smoke.settings');
+    $enabledSuites = $settings->get('suites') ?? [];
+    $labels = ModuleDetector::suiteLabels();
 
-  /**
-   * Prints a formatted results report.
-   */
-  private function printResults(array $results, ?string $targetUrl = NULL, bool $hasTerminus = FALSE): void {
-    $suites = $results['suites'] ?? [];
-    $summary = $results['summary'] ?? [];
-
-    if (empty($suites)) {
-      $this->io()->warning('No test results returned. Check Playwright output.');
-      if (!empty($results['raw'])) {
-        $this->io()->text(substr($results['raw'], 0, 500));
+    $suitesToRun = [];
+    foreach ($detected as $id => $info) {
+      $enabled = $enabledSuites[$id] ?? TRUE;
+      if ($enabled && ($info['detected'] ?? FALSE)) {
+        $suitesToRun[] = $id;
       }
+    }
+
+    $totalSuites = count($suitesToRun);
+    if ($totalSuites === 0) {
+      $this->io()->warning('No test suites detected.');
       return;
     }
 
-    $labels = ModuleDetector::suiteLabels();
+    // Clear previous results for a clean full run.
+    \Drupal::state()->set('smoke.last_results', []);
 
-    foreach ($suites as $id => $suite) {
-      $label = $labels[$id] ?? $suite['title'] ?? $id;
-      $failed = (int) ($suite['failed'] ?? 0);
-      $passed = (int) ($suite['passed'] ?? 0);
-      $time = number_format(($suite['duration'] ?? 0) / 1000, 1);
+    // Configure progress bar.
+    ProgressBar::setFormatDefinition('smoke', "  <fg=cyan>▸</> %message:-18s%  %bar%  %current%/%max% suites  <fg=gray>%elapsed:6s%</>");
+    $progress = new ProgressBar($this->io(), $totalSuites);
+    $progress->setFormat('smoke');
+    $progress->setBarCharacter('<fg=green>━</>');
+    $progress->setEmptyBarCharacter('<fg=gray>─</>');
+    $progress->setProgressCharacter('<fg=cyan>▸</>');
+    $progress->setBarWidth(20);
+
+    $totalPassed = 0;
+    $totalFailed = 0;
+    $totalSkipped = 0;
+    $startTime = microtime(TRUE);
+
+    // Show initial progress bar with first suite name.
+    $progress->setMessage($labels[$suitesToRun[0]] ?? $suitesToRun[0]);
+    $progress->start();
+
+    foreach ($suitesToRun as $i => $suiteId) {
+      $label = $labels[$suiteId] ?? $suiteId;
+
+      // Run this suite (progress bar visible while waiting).
+      $results = $this->testRunner->run($suiteId, $targetUrl, $remoteCredentials);
+      $suiteResult = $results['suites'][$suiteId] ?? [];
+
+      $passed = (int) ($suiteResult['passed'] ?? 0);
+      $failed = (int) ($suiteResult['failed'] ?? 0);
+      $skipped = (int) ($suiteResult['skipped'] ?? 0);
+      $time = number_format(($suiteResult['duration'] ?? 0) / 1000, 1);
+
+      $totalPassed += $passed;
+      $totalFailed += $failed;
+      $totalSkipped += $skipped;
+
+      // Clear progress bar, print suite result.
+      $progress->clear();
 
       $badge = $failed > 0
         ? "<fg=red>✕ {$failed} failed</>"
         : "<fg=green>✓ {$passed} passed</>";
+      $paddedLabel = str_pad($label, 18);
+      $this->io()->text("  {$paddedLabel}{$badge}  <fg=gray>{$time}s</>");
 
-      $this->io()->text("  <options=bold>{$label}</>  {$badge}  <fg=gray>{$time}s</>");
-
-      foreach (($suite['tests'] ?? []) as $test) {
-        $icon = ($test['status'] ?? '') === 'passed'
-          ? '<fg=green>✓</>'
-          : '<fg=red>✕</>';
-        $testTime = number_format(($test['duration'] ?? 0) / 1000, 1);
-        $this->io()->text("    {$icon} {$test['title']}  <fg=gray>{$testTime}s</>");
-
-        if (($test['status'] ?? '') === 'failed' && !empty($test['error'])) {
-          $error = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $test['error']);
-          $this->io()->text('      <fg=red>' . substr($error, 0, 200) . '</>');
+      // Show individual failed tests inline.
+      if ($failed > 0) {
+        foreach (($suiteResult['tests'] ?? []) as $test) {
+          if (($test['status'] ?? '') === 'failed') {
+            $testTime = number_format(($test['duration'] ?? 0) / 1000, 1);
+            $this->io()->text("    <fg=red>✕</> {$test['title']}  <fg=gray>{$testTime}s</>");
+            if (!empty($test['error'])) {
+              $error = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $test['error']);
+              $this->io()->text('      <fg=red>' . substr($error, 0, 200) . '</>');
+            }
+          }
         }
       }
 
-      $this->io()->newLine();
+      // Set next suite name, then advance (which auto-displays the bar).
+      if ($i + 1 < $totalSuites) {
+        $progress->setMessage($labels[$suitesToRun[$i + 1]] ?? $suitesToRun[$i + 1]);
+      }
+      else {
+        $progress->setMessage('Finishing...');
+      }
+      $progress->advance();
     }
 
-    // Summary.
-    $totalPassed = (int) ($summary['passed'] ?? 0);
-    $totalFailed = (int) ($summary['failed'] ?? 0);
-    $totalDuration = number_format(($summary['duration'] ?? 0) / 1000, 1);
+    // Remove progress bar from output.
+    $progress->clear();
 
+    // Summary.
+    $totalDuration = number_format(microtime(TRUE) - $startTime, 1);
+
+    $this->io()->newLine();
     $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     if ($totalFailed === 0 && $totalPassed > 0) {
@@ -372,8 +413,13 @@ final class SmokeRunCommand extends DrushCommands {
       $localUrl = getenv('DDEV_PRIMARY_URL') ?: '';
       if ($localUrl) {
         $this->io()->text("  <fg=gray>Dashboard:</>       {$localUrl}/admin/reports/smoke");
+        $this->io()->text("  <fg=gray>Settings:</>        {$localUrl}/admin/config/development/smoke");
+        $this->io()->text("  <fg=gray>Status report:</>   {$localUrl}/admin/reports/status");
+        $this->io()->text("  <fg=gray>Recent log:</>      {$localUrl}/admin/reports/dblog");
       }
-      if (!$targetUrl && $this->hasWebformResults($suites)) {
+      $allSuiteResults = $this->testRunner->getLastResults();
+      $allSuites = $allSuiteResults['suites'] ?? [];
+      if (!$targetUrl && $this->hasWebformResults($allSuites)) {
         $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
       }
     }

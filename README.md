@@ -21,10 +21,11 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 - [What It Tests](#what-it-tests)
 - [Configuration](#configuration)
 - [Custom URLs](#custom-urls)
+- [Adding Custom Tests](#adding-custom-tests)
 - [After Module Updates](#after-module-updates)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
-- [Uninstall](#uninstall)
+- [Uninstall & Cleanup](#uninstall--cleanup)
 - [Maintainers](#maintainers)
 - [License](#license)
 
@@ -34,9 +35,10 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 
 - **Drupal** 10 or 11
 - **DDEV** local development environment
+- **Node.js** 18+ (included in DDEV containers)
 - **Composer** (managed via DDEV)
 
-The setup script automatically installs the [codingsasi/ddev-playwright](https://github.com/codingsasi/ddev-playwright) addon and Chromium browser inside the DDEV container. No manual browser installation needed.
+No third-party DDEV addons are required. Smoke handles Playwright and Chromium installation directly during setup.
 
 ---
 
@@ -51,22 +53,39 @@ ddev drush en smoke -y
 
 ## Setup
 
-After enabling the module, run the host setup script. This is the **one command** that does everything:
+After enabling the module, run the host setup script from your **project root** (where `.ddev/` lives):
 
 ```bash
 bash web/modules/contrib/smoke/scripts/host-setup.sh
 ```
 
-### What the setup script does:
+Or run setup entirely inside the container:
 
-1. Detects (or installs) the DDEV Playwright addon
-2. Patches a known Docker build issue (expired Sury PHP GPG key)
-3. Installs Playwright browsers into the DDEV container (rebuilds container, ~1-3 min)
-4. Runs `drush smoke:setup` inside the container, which:
-   - Installs npm dependencies for the Playwright test suites
-   - **Generates the test configuration** — scans your site for installed modules, webforms, commerce stores, search pages, etc. and writes a JSON config file that Playwright reads
-   - Creates a `smoke_bot` test user and role for authentication tests
-   - Verifies all test suites are wired up
+```bash
+ddev drush smoke:setup
+```
+
+### What setup does
+
+1. Verifies DDEV is running and Node.js is available
+2. Installs npm dependencies for the Playwright test suites
+3. Downloads the **Chromium** browser (~180 MiB one-time download) and its system dependencies
+4. Generates the test configuration — scans your site for installed modules, webforms, commerce stores, search pages, etc.
+5. Creates a `smoke_bot` test user and role for authentication tests
+6. Verifies all test suites are wired up
+7. Installs a DDEV post-start hook (`config.smoke.yaml`) that auto-regenerates config on `ddev start`
+
+### What gets installed where
+
+| What | Where | Size |
+|------|-------|------|
+| npm packages | `web/modules/contrib/smoke/playwright/node_modules/` | ~50 MiB |
+| Chromium browser | `~/.cache/ms-playwright/chromium-*` (inside container) | ~180 MiB |
+| System libraries | Container OS packages (libnspr4, libnss3, etc.) | ~20 MiB |
+| Test config | `web/modules/contrib/smoke/playwright/.smoke-config.json` | <1 KB |
+| DDEV hook | `.ddev/config.smoke.yaml` | <1 KB |
+
+The Chromium browser is cached per-user inside the DDEV container. If multiple projects use Smoke, they share the same browser cache. The cache persists across `ddev restart` but is removed on `ddev delete`.
 
 ### Re-running setup
 
@@ -76,16 +95,34 @@ If you install new modules (e.g. add Webform or Commerce) and want Smoke to dete
 ddev drush smoke:setup
 ```
 
-This regenerates the test config. You don't need the host script again unless you've removed the Playwright addon.
+This regenerates the test config. Browsers are only downloaded on first run.
 
 ---
 
 ## Running Tests
 
-### Run all tests
+### Show status and detected suites
 
 ```bash
 ddev drush smoke
+```
+
+### Run all tests
+
+```bash
+ddev drush smoke --run
+```
+
+Tests run sequentially with a live progress bar showing which suite is executing:
+
+```
+  Smoke Tests — My Site
+  https://my-site.ddev.site
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Core Pages        ✓ 8 passed  3.7s
+  Authentication    ✓ 5 passed  2.6s
+  ▸ Webform           ━━━━━━━▸────────────  3/8 suites  17s
 ```
 
 ### Run a specific suite
@@ -100,6 +137,14 @@ ddev drush smoke:suite health
 ddev drush smoke:suite sitemap
 ddev drush smoke:suite content
 ddev drush smoke:suite accessibility
+```
+
+### Auto-fix common failures
+
+```bash
+ddev drush smoke:fix              # Analyze last results and fix what it can
+ddev drush smoke:fix --sitemap    # Regenerate the XML sitemap
+ddev drush smoke:fix --all        # Fix all known issues
 ```
 
 ### Test a remote site (post-deploy)
@@ -160,6 +205,7 @@ Visit **Reports > Smoke Tests** (`/admin/reports/smoke`) to:
 - View per-suite results with individual test names and durations
 - Click **Run All Tests** or run individual suites from the UI
 - See failure details and error messages inline
+- **Regenerate sitemap** directly from the Sitemap suite card
 
 ### Settings
 
@@ -177,12 +223,16 @@ Access requires the `administer smoke tests` permission.
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `drush smoke:run` | `drush smoke` | Run all enabled smoke test suites |
-| `drush smoke:run --target=URL` | `drush smoke --run --target=URL` | Run tests against a remote site |
-| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`, `health`, `sitemap`, `content`, `accessibility`) |
+| `drush smoke:run` | `drush smoke` | Show status, or run all tests with `--run` |
+| `drush smoke:run --run` | `drush smoke --run` | Run all enabled test suites with progress bar |
+| `drush smoke:run --run --target=URL` | — | Run tests against a remote site |
+| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`) |
 | `drush smoke:suite {id} --target=URL` | — | Run one suite against a remote site |
 | `drush smoke:list` | — | Show detected suites, enabled status, and last results |
-| `drush smoke:setup` | — | Install dependencies, generate config, verify test user |
+| `drush smoke:setup` | — | Install dependencies, browsers, generate config, verify test user |
+| `drush smoke:fix` | `sfix` | Analyze last results and auto-fix common issues |
+| `drush smoke:fix --sitemap` | — | Regenerate the XML sitemap |
+| `drush smoke:fix --all` | — | Fix all detected issues |
 
 ---
 
@@ -418,14 +468,14 @@ ddev composer update
 ddev drush cr
 
 # Run smoke tests to verify nothing broke
-ddev drush smoke
+ddev drush smoke --run
 ```
 
 If you've added or removed modules (e.g. added `webform`), regenerate the config first:
 
 ```bash
 ddev drush smoke:setup
-ddev drush smoke
+ddev drush smoke --run
 ```
 
 ---
@@ -436,7 +486,7 @@ ddev drush smoke
 smoke/
 ├── src/
 │   ├── Controller/
-│   │   └── DashboardController.php   # Admin UI — results, run tests
+│   │   └── DashboardController.php   # Admin UI — results, run tests, sitemap regen
 │   ├── Form/
 │   │   └── SettingsForm.php           # Config form — suites, URLs, timeout
 │   ├── Service/
@@ -444,10 +494,11 @@ smoke/
 │   │   ├── ConfigGenerator.php        # Writes JSON bridge file for Playwright
 │   │   └── TestRunner.php             # Spawns Playwright, parses results
 │   └── Commands/
-│       ├── SmokeRunCommand.php        # drush smoke:run
+│       ├── SmokeRunCommand.php        # drush smoke:run (with progress bar)
 │       ├── SmokeSuiteCommand.php      # drush smoke:suite {id}
 │       ├── SmokeListCommand.php       # drush smoke:list
-│       └── SmokeSetupCommand.php      # drush smoke:setup
+│       ├── SmokeSetupCommand.php      # drush smoke:setup (installs browsers)
+│       └── SmokeFixCommand.php        # drush smoke:fix (auto-fix failures)
 ├── playwright/
 │   ├── playwright.config.ts           # Playwright config — reads .smoke-config.json
 │   ├── src/
@@ -510,11 +561,27 @@ Run a single suite to diagnose: `ddev drush smoke:suite core_pages`
 
 ### "Playwright is not set up"
 
-Run the setup: `bash web/modules/contrib/smoke/scripts/host-setup.sh`
+Run setup: `ddev drush smoke:setup`
 
-### Docker build fails (expired GPG key)
+If that fails, try the host script: `bash web/modules/contrib/smoke/scripts/host-setup.sh`
 
-The host-setup script patches this automatically. If you're building manually, see the `scripts/host-setup.sh` for the Sury key fix.
+### browserType.launch errors
+
+This means Chromium's system dependencies are missing. Fix with:
+
+```bash
+ddev exec "sudo npx playwright install-deps chromium"
+```
+
+Or re-run setup which handles this automatically: `ddev drush smoke:setup`
+
+### Sitemap tests fail with "contains at least one URL"
+
+The sitemap may be empty or stale. Regenerate it:
+
+```bash
+ddev drush smoke:fix --sitemap
+```
 
 ### Webform tests fail with 404
 
@@ -530,14 +597,126 @@ The setup creates a `smoke_bot` user with a random password stored in Drupal sta
 
 ---
 
-## Uninstall
+## Uninstall & Cleanup
+
+### Quick uninstall (module only)
+
+This removes the Drupal module, the `smoke_bot` user, the role, and all stored state:
 
 ```bash
 ddev drush pmu smoke -y
 ddev composer remove drupal/smoke
 ```
 
-This removes the `smoke_bot` user, the Smoke Test Bot role, and all stored test results from Drupal state.
+### Full cleanup (remove everything Smoke installed)
+
+If you want to completely remove all traces of Smoke and Playwright from your system:
+
+#### 1. Uninstall the Drupal module
+
+```bash
+ddev drush pmu smoke -y
+ddev composer remove drupal/smoke
+```
+
+This automatically:
+- Deletes the `smoke_bot` user account
+- Deletes the `Smoke Test Bot` role
+- Removes all Smoke state data (test results, bot password, timestamps)
+- Removes the `smoke_test` webform (if it was auto-created)
+
+#### 2. Remove the DDEV hook file
+
+Smoke installs a post-start hook that auto-regenerates config:
+
+```bash
+rm -f .ddev/config.smoke.yaml
+```
+
+#### 3. Remove Playwright browser cache (inside DDEV container)
+
+The Chromium browser binary is cached inside the container at `~/.cache/ms-playwright/`:
+
+```bash
+ddev exec "rm -rf ~/.cache/ms-playwright"
+```
+
+This frees ~180 MiB. Note: if other projects also use Playwright inside DDEV, they share this cache — removing it will require them to re-download.
+
+#### 4. Remove the test/playwright stub (if created by host-setup.sh)
+
+The host setup script may have created a stub directory for the DDEV Playwright addon:
+
+```bash
+rm -rf test/playwright
+```
+
+#### 5. Remove any third-party DDEV Playwright addon (if previously installed)
+
+If you previously installed `codingsasi/ddev-playwright` or `Lullabot/ddev-playwright`, and no other project needs it:
+
+```bash
+# Check if installed
+ls .ddev/config.playwright.yaml .ddev/config.playwright.yml 2>/dev/null
+
+# Remove the addon
+ddev add-on remove codingsasi/ddev-playwright   # or Lullabot/ddev-playwright
+ddev restart
+```
+
+#### 6. Remove Playwright from the host system (if installed outside DDEV)
+
+If you ever ran `npx playwright install` on your **host machine** (outside DDEV), Playwright stores browsers in your user home directory:
+
+| OS | Browser cache location |
+|----|----------------------|
+| **macOS** | `~/Library/Caches/ms-playwright/` |
+| **Linux** | `~/.cache/ms-playwright/` |
+| **Windows** | `%USERPROFILE%\AppData\Local\ms-playwright\` |
+
+To remove:
+
+```bash
+# macOS
+rm -rf ~/Library/Caches/ms-playwright
+
+# Linux
+rm -rf ~/.cache/ms-playwright
+```
+
+This frees 200-500 MiB depending on how many browser types were installed.
+
+#### 7. Verify cleanup
+
+After all steps, confirm nothing remains:
+
+```bash
+# Module should be gone
+ddev drush pm:list --filter=smoke
+# Should return empty table
+
+# No DDEV hook
+ls .ddev/config.smoke.yaml 2>/dev/null
+# Should say "No such file"
+
+# No browser cache in container
+ddev exec "ls ~/.cache/ms-playwright 2>/dev/null"
+# Should say "No such file or directory"
+
+# No test stub
+ls test/playwright 2>/dev/null
+# Should say "No such file"
+```
+
+### What Smoke does NOT touch
+
+For reference, these are things Smoke **never** modifies:
+
+- Your site's content, configuration, or database (except the `smoke_bot` user/role, which is removed on uninstall)
+- Your `.ddev/config.yaml` or other DDEV config files (it only creates `.ddev/config.smoke.yaml`)
+- Your `composer.json` beyond the `drupal/smoke` package entry
+- Any files outside the module directory and `.ddev/config.smoke.yaml`
+- Global npm packages or global Playwright installations
 
 ---
 
