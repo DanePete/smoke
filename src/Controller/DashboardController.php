@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Controller;
 
+use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Drupal\Component\Utility\Html;
@@ -21,6 +22,7 @@ final class DashboardController extends ControllerBase {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly CsrfTokenGenerator $csrfTokenGenerator,
   ) {}
 
   /**
@@ -30,6 +32,7 @@ final class DashboardController extends ControllerBase {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('csrf_token'),
     );
   }
 
@@ -85,7 +88,7 @@ final class DashboardController extends ControllerBase {
       'duration' => 0,
     ];
 
-    $csrfToken = \Drupal::csrfToken()->get('smoke');
+    $csrfToken = $this->csrfTokenGenerator->get('smoke');
 
     $build = [
       '#theme' => 'smoke_dashboard',
@@ -381,7 +384,7 @@ final class DashboardController extends ControllerBase {
    * Runs all enabled test suites.
    */
   public function run(Request $request): RedirectResponse {
-    if (!$this->csrfToken($request)) {
+    if (!$this->validateCsrfToken($request)) {
       $this->messenger()->addError($this->t('Invalid request. Please try again.'));
       return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
     }
@@ -399,13 +402,13 @@ final class DashboardController extends ControllerBase {
     $total = $passed + $failed;
 
     if ($failed === 0 && $total > 0) {
-      $this->messenger()->addStatus($this->t('All @count tests passed in @times.', [
+      $this->messenger()->addStatus($this->t('All @count tests passed in @time.', [
         '@count' => $total,
         '@time' => $duration,
       ]));
     }
     elseif ($failed > 0) {
-      $this->messenger()->addWarning($this->t('@passed of @total passed, @failed failed in @times.', [
+      $this->messenger()->addWarning($this->t('@passed of @total passed, @failed failed in @time.', [
         '@passed' => $passed,
         '@total' => $total,
         '@failed' => $failed,
@@ -423,13 +426,22 @@ final class DashboardController extends ControllerBase {
    * Runs a single test suite.
    */
   public function runSuite(Request $request, string $suite): RedirectResponse {
-    if (!$this->csrfToken($request)) {
+    if (!$this->validateCsrfToken($request)) {
       $this->messenger()->addError($this->t('Invalid request. Please try again.'));
       return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
     }
 
     if (!$this->testRunner->isSetup()) {
       $this->messenger()->addError($this->t('Playwright is not set up. Run: <code>drush smoke:setup</code>'));
+      return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
+    }
+
+    // Validate that the suite ID is known.
+    $knownSuites = array_keys(ModuleDetector::suiteLabels());
+    if (!in_array($suite, $knownSuites, TRUE)) {
+      $this->messenger()->addError($this->t('Unknown test suite: @suite', [
+        '@suite' => $suite,
+      ]));
       return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
     }
 
@@ -443,14 +455,14 @@ final class DashboardController extends ControllerBase {
       $label = Html::escape($suiteData['title'] ?? $suite);
 
       if ($failed === 0) {
-        $this->messenger()->addStatus($this->t('@label: @count tests passed in @times.', [
+        $this->messenger()->addStatus($this->t('@label: @count tests passed in @time.', [
           '@label' => $label,
           '@count' => $passed,
           '@time' => $duration,
         ]));
       }
       else {
-        $this->messenger()->addWarning($this->t('@label: @failed of @total failed in @times.', [
+        $this->messenger()->addWarning($this->t('@label: @failed of @total failed in @time.', [
           '@label' => $label,
           '@failed' => $failed,
           '@total' => $passed + $failed,
@@ -468,14 +480,12 @@ final class DashboardController extends ControllerBase {
    * Supports simple_sitemap and xmlsitemap modules.
    */
   public function sitemapRegen(Request $request): RedirectResponse {
-    if (!$this->csrfToken($request)) {
+    if (!$this->validateCsrfToken($request)) {
       $this->messenger()->addError($this->t('Invalid request. Please try again.'));
       return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
     }
 
-    $moduleHandler = \Drupal::moduleHandler();
-
-    if ($moduleHandler->moduleExists('simple_sitemap')) {
+    if ($this->moduleHandler()->moduleExists('simple_sitemap')) {
       try {
         /** @var \Drupal\simple_sitemap\Manager\Generator $generator */
         $generator = \Drupal::service('simple_sitemap.generator');
@@ -488,7 +498,7 @@ final class DashboardController extends ControllerBase {
         ]));
       }
     }
-    elseif ($moduleHandler->moduleExists('xmlsitemap')) {
+    elseif ($this->moduleHandler()->moduleExists('xmlsitemap')) {
       try {
         \Drupal::service('xmlsitemap.generator')->regenerate();
         $this->messenger()->addStatus($this->t('Sitemap regenerated successfully.'));
@@ -509,9 +519,9 @@ final class DashboardController extends ControllerBase {
   /**
    * Validates the CSRF token on POST requests.
    */
-  private function csrfToken(Request $request): bool {
+  private function validateCsrfToken(Request $request): bool {
     $token = $request->request->get('token', '');
-    return \Drupal::csrfToken()->validate((string) $token, 'smoke');
+    return $this->csrfTokenGenerator->validate((string) $token, 'smoke');
   }
 
 }

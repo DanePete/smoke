@@ -7,11 +7,26 @@ namespace Drupal\smoke\Form;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\smoke\Service\ModuleDetector;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Configuration form for Smoke test settings.
  */
 final class SettingsForm extends ConfigFormBase {
+
+  /**
+   * The module detector service.
+   */
+  private readonly ModuleDetector $moduleDetector;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container): static {
+    $instance = parent::create($container);
+    $instance->moduleDetector = $container->get('smoke.module_detector');
+    return $instance;
+  }
 
   /**
    * {@inheritdoc}
@@ -34,10 +49,7 @@ final class SettingsForm extends ConfigFormBase {
     $config = $this->config('smoke.settings');
     $enabledSuites = $config->get('suites') ?? [];
     $labels = ModuleDetector::suiteLabels();
-
-    /** @var \Drupal\smoke\Service\ModuleDetector $detector */
-    $detector = \Drupal::service('smoke.module_detector');
-    $detected = $detector->detect();
+    $detected = $this->moduleDetector->detect();
 
     // ── Suite toggles ──
     $form['suites'] = [

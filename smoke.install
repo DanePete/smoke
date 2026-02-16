@@ -117,6 +117,23 @@ function smoke_uninstall(): void {
     $role->delete();
   }
 
+  // Remove the smoke_test webform if it exists.
+  if (\Drupal::moduleHandler()->moduleExists('webform')) {
+    $webform = \Drupal::entityTypeManager()
+      ->getStorage('webform')
+      ->load('smoke_test');
+    if ($webform) {
+      $webform->delete();
+    }
+  }
+
+  // Remove generated Playwright config file.
+  $modulePath = \Drupal::service('extension.list.module')->getPath('smoke');
+  $configFile = DRUPAL_ROOT . '/' . $modulePath . '/playwright/.smoke-config.json';
+  if (file_exists($configFile)) {
+    @unlink($configFile);
+  }
+
   // Clean up state.
   \Drupal::state()->deleteMultiple([
     'smoke.bot_password',

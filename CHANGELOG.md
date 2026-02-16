@@ -1,0 +1,75 @@
+# Changelog
+
+All notable changes to the Smoke module are documented in this file.
+
+## [Unreleased]
+
+### Bug fixes
+
+- Fixed broken duration display in dashboard status messages (`@times` placeholder mismatch).
+- Fixed timeout default inconsistency: config install now defaults to 30000ms (was 10000ms vs. 30000ms in form).
+
+### Improvements
+
+- Replaced static `\Drupal::` service calls with proper dependency injection in DashboardController and SettingsForm.
+- Added suite ID validation in `runSuite()` — rejects unknown suite IDs instead of attempting to run nonexistent spec files.
+- Uninstall now cleans up `smoke_test` webform and `.smoke-config.json`.
+- Added CHANGELOG.md.
+- Added PHPUnit tests for install hooks, config schema, and suite labels.
+
+## [1.1.0-beta3] - 2026-02-14
+
+### New features
+
+- Live progress bar on `drush smoke --run` — suites execute sequentially with real-time progress display.
+- `drush smoke:fix` command — analyzes last test results and auto-fixes common issues.
+  - `--sitemap` regenerates XML sitemap (simple_sitemap / xmlsitemap).
+  - `--all` fixes all detected issues.
+- Regenerate sitemap button on the dashboard Sitemap card.
+- Admin URLs (Dashboard, Settings, Status report, Recent log) shown in CLI output after test runs.
+
+### Bug fixes
+
+- Fixed sitemap spec: was checking rendered `textContent()` which strips XML tags — now reads raw response body.
+- Fixed `simple_sitemap` API call (`generate()` not `generateSitemap()`).
+
+### Improvements
+
+- Comprehensive README rewrite: install locations table, full uninstall/cleanup guide, `smoke:fix` documentation.
+
+## [1.1.0-beta2] - 2026-02-14
+
+### Improvements
+
+- Self-sufficient setup: module no longer requires the third-party `codingsasi/ddev-playwright` DDEV addon.
+- Setup commands install only Chromium (~180 MiB) instead of all 5 browser types (~470 MiB).
+- `SmokeSetupCommand` checks for existing browser installation to avoid redundant downloads.
+- `host-setup.sh` rewritten to handle all Playwright setup internally.
+
+## [1.1.0-beta1] - 2026-02-14
+
+### Improvements
+
+- Promoted to beta: updated `minimum-stability` from `dev` to `beta` in `composer.json`.
+- Added `PROJECT_PAGE.md` placeholder for Drupal.org.
+
+## [1.0.0] - 2026-02-14
+
+Initial stable release.
+
+### Features
+
+- 9 auto-detected test suites: Core Pages, Authentication, Webform, Commerce, Search, Health, Sitemap, Content, Accessibility.
+- Admin dashboard under Reports > Smoke Tests with per-suite results, action links, and technical details.
+- Settings form for enabling/disabling suites, custom URLs, and timeout configuration.
+- Drush commands: `smoke:run`, `smoke:suite`, `smoke:list`, `smoke:setup`.
+- `smoke_bot` user and role created on install for authenticated tests.
+- Playwright-based test engine with JSON reporter bridge.
+- Remote testing support via `--target` flag.
+- Host setup script (`host-setup.sh`) for one-command install.
+
+[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta3...1.0.x
+[1.1.0-beta3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta2...1.1.0-beta3
+[1.1.0-beta2]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta1...1.1.0-beta2
+[1.1.0-beta1]: https://git.drupalcode.org/project/smoke/-/compare/1.0.0...1.1.0-beta1
+[1.0.0]: https://git.drupalcode.org/project/smoke/-/tags/1.0.0
