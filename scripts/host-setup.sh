@@ -50,10 +50,22 @@ ok "DDEV is running."
 
 # ── Step 2: Resolve Smoke module's playwright directory ──
 step "Locating Smoke module..."
-SMOKE_PW_DIR=$(ddev exec drush eval "echo DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke') . '/playwright';" 2>/dev/null || echo "")
+DRUSH_OUTPUT=$(ddev exec drush eval "echo DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke') . '/playwright';" 2>&1) && DRUSH_OK=1 || DRUSH_OK=0
+
+# Valid path contains / and "playwright" and no PHP error keywords.
+if [ "$DRUSH_OK" -ne 1 ] || [ -z "$DRUSH_OUTPUT" ] || \
+   echo "$DRUSH_OUTPUT" | grep -qE 'Error|Exception|ArgumentCountError|Fatal|do not exist'; then
+  SMOKE_PW_DIR=""
+else
+  # Trim whitespace; must look like an absolute path ending with /playwright.
+  SMOKE_PW_DIR=$(echo "$DRUSH_OUTPUT" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  if ! echo "$SMOKE_PW_DIR" | grep -qE '^/.*/smoke.*/playwright$'; then
+    SMOKE_PW_DIR=""
+  fi
+fi
 
 if [ -z "$SMOKE_PW_DIR" ]; then
-  # Fallback: common paths.
+  # Fallback: common paths (no Drush bootstrap needed).
   for candidate in "web/modules/contrib/smoke/playwright" "web/modules/custom/smoke/playwright" "docroot/modules/contrib/smoke/playwright"; do
     if ddev exec "test -d /var/www/html/$candidate" 2>/dev/null; then
       SMOKE_PW_DIR="/var/www/html/$candidate"
@@ -63,7 +75,15 @@ if [ -z "$SMOKE_PW_DIR" ]; then
 fi
 
 if [ -z "$SMOKE_PW_DIR" ]; then
-  fail "Could not find the Smoke module. Is it installed? (composer require drupal/smoke)"
+  echo ""
+  if echo "$DRUSH_OUTPUT" | grep -q 'ArgumentCountError.*SmokeSetupCommand'; then
+    echo -e "  ${RED}Smoke module is installed but Drush service definition is out of date.${NC}"
+    echo "  Edit web/modules/contrib/smoke/drush.services.yml and add the third argument:"
+    echo "  smoke.command.setup arguments: ... - '@smoke.config_generator' - '@smoke.module_detector'"
+    echo "  Then run: ddev drush cr"
+    echo ""
+  fi
+  fail "Could not find the Smoke module. Is it installed and enabled? (composer require drupal/smoke && drush en smoke -y)"
 fi
 ok "Found: $SMOKE_PW_DIR"
 

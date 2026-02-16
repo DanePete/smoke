@@ -28,6 +28,7 @@ services:
     arguments:
       - '@smoke.test_runner'
       - '@smoke.config_generator'
+      - '@smoke.module_detector'
     tags:
       - { name: drush.command }
 
