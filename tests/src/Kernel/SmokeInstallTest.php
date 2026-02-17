@@ -31,11 +31,14 @@ final class SmokeInstallTest extends KernelTestBase {
     parent::setUp();
 
     $this->installEntitySchema('user');
-    $this->installSchema('system', ['sequences']);
     $this->installConfig(['smoke']);
 
-    // Run the install hook to create smoke_bot user and role.
-    \Drupal::moduleHandler()->invoke('smoke', 'install');
+    // KernelTestBase only loads .module files automatically. The .install
+    // file must be loaded explicitly so smoke_install() is available.
+    module_load_install('smoke');
+
+    // Run the install hook to create the smoke_bot user and role.
+    smoke_install();
   }
 
   /**
@@ -93,8 +96,8 @@ final class SmokeInstallTest extends KernelTestBase {
   public function testUninstallCleansUp(): void {
     $uid = \Drupal::state()->get('smoke.bot_uid');
 
-    // Run the uninstall hook.
-    \Drupal::moduleHandler()->invoke('smoke', 'uninstall');
+    // Run the uninstall hook (loaded via module_load_install in setUp).
+    smoke_uninstall();
 
     // User should be deleted.
     $user = User::load($uid);
