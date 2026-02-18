@@ -497,18 +497,12 @@ BASH;
   }
 
   /**
-   * Shows a one-time tip about global Playwright installation for agencies.
+   * Shows a tip about global Playwright installation for IDE (can show each setup).
    *
    * @param string $playwrightDir
    *   Path to the Playwright directory.
    */
   private function showAgencyTip(string $playwrightDir): void {
-    // Only show once per project.
-    $markerFile = DRUPAL_ROOT . '/../.ddev/.smoke-agency-tip-shown';
-    if (is_file($markerFile)) {
-      return;
-    }
-
     // Check if using global Playwright (environment variable set).
     $globalPath = getenv('PLAYWRIGHT_BROWSERS_PATH');
     if ($globalPath && is_dir($globalPath)) {
@@ -539,9 +533,6 @@ BASH;
     $this->io()->text('  <fg=cyan;options=bold>Tip: For IDE on your Mac?</>');
     $this->io()->text('  <fg=gray>From your project root on your host:</>');
     $this->io()->text("  <options=bold>bash {$scriptRel}</>");
-
-    // Mark as shown.
-    @file_put_contents($markerFile, date('c'));
   }
 
   /**
