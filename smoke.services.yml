@@ -39,9 +39,18 @@ services:
 
   smoke.suite_plugin_manager:
     class: Drupal\smoke\Plugin\SuitePluginManager
-    parent: default_plugin_manager
+    arguments:
+      - '@container.namespaces'
+      - '@cache.discovery'
+      - '@module_handler'
+      - '@logger.channel.smoke'
 
   smoke.yaml_suite_discovery:
     class: Drupal\smoke\Discovery\YamlSuiteDiscovery
     arguments:
       - '@module_handler'
+      - '@logger.channel.smoke'
+
+  logger.channel.smoke:
+    parent: logger.channel_base
+    arguments: ['smoke']

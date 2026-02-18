@@ -32,6 +32,16 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 class SmokeSuite extends Plugin {
 
   /**
+   * Module dependencies for this suite.
+   *
+   * Stored separately from AttributeBase::$dependencies which
+   * uses a different type (array|null with structured keys).
+   *
+   * @var string[]
+   */
+  private array $moduleDependencies;
+
+  /**
    * Constructs a SmokeSuite attribute.
    *
    * @param string $id
@@ -55,8 +65,22 @@ class SmokeSuite extends Plugin {
     public readonly ?TranslatableMarkup $description = NULL,
     public readonly int $weight = 0,
     public readonly string $icon = 'puzzle',
-    public readonly array $dependencies = [],
+    array $dependencies = [],
     public readonly ?string $deriver = NULL,
-  ) {}
+  ) {
+    $this->moduleDependencies = $dependencies;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function get(): array|object {
+    $values = parent::get();
+    if (is_array($values)) {
+      unset($values['moduleDependencies']);
+      $values['dependencies'] = $this->moduleDependencies;
+    }
+    return $values;
+  }
 
 }

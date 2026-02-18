@@ -9,6 +9,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Plugin\DefaultPluginManager;
 use Drupal\smoke\Annotation\SmokeSuite;
 use Drupal\smoke\Attribute\SmokeSuite as SmokeSuiteAttribute;
+use Psr\Log\LoggerInterface;
 
 /**
  * Plugin manager for Smoke Test Suite plugins.
@@ -43,6 +44,11 @@ use Drupal\smoke\Attribute\SmokeSuite as SmokeSuiteAttribute;
 class SuitePluginManager extends DefaultPluginManager {
 
   /**
+   * The logger channel.
+   */
+  protected LoggerInterface $smokeLogger;
+
+  /**
    * Constructs a SuitePluginManager.
    *
    * @param \Traversable $namespaces
@@ -52,11 +58,14 @@ class SuitePluginManager extends DefaultPluginManager {
    *   The cache backend.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   The logger channel.
    */
   public function __construct(
     \Traversable $namespaces,
     CacheBackendInterface $cache_backend,
     ModuleHandlerInterface $module_handler,
+    LoggerInterface $logger,
   ) {
     parent::__construct(
       'Plugin/SmokeSuite',
@@ -69,6 +78,7 @@ class SuitePluginManager extends DefaultPluginManager {
 
     $this->alterInfo('smoke_suite_info');
     $this->setCacheBackend($cache_backend, 'smoke_suite_plugins');
+    $this->smokeLogger = $logger;
   }
 
   /**
@@ -85,11 +95,13 @@ class SuitePluginManager extends DefaultPluginManager {
         $suites[$id] = $this->createInstance($id);
       }
       catch (\Exception $e) {
-        // Log but don't fail if a plugin can't be instantiated.
-        \Drupal::logger('smoke')->warning('Failed to instantiate suite plugin @id: @message', [
-          '@id' => $id,
-          '@message' => $e->getMessage(),
-        ]);
+        $this->smokeLogger->warning(
+          'Failed to instantiate suite plugin @id: @message',
+          [
+            '@id' => $id,
+            '@message' => $e->getMessage(),
+          ]
+        );
       }
     }
 

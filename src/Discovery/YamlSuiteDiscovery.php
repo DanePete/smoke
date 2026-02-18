@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Discovery;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -45,13 +46,24 @@ class YamlSuiteDiscovery {
   protected ModuleHandlerInterface $moduleHandler;
 
   /**
+   * The logger channel.
+   */
+  protected LoggerInterface $logger;
+
+  /**
    * Constructs a YamlSuiteDiscovery.
    *
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $module_handler
    *   The module handler.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   The logger channel.
    */
-  public function __construct(ModuleHandlerInterface $module_handler) {
+  public function __construct(
+    ModuleHandlerInterface $module_handler,
+    LoggerInterface $logger,
+  ) {
     $this->moduleHandler = $module_handler;
+    $this->logger = $logger;
   }
 
   /**
@@ -92,7 +104,7 @@ class YamlSuiteDiscovery {
         }
       }
       catch (\Exception $e) {
-        \Drupal::logger('smoke')->warning(
+        $this->logger->warning(
           'Failed to parse @path: @message',
           [
             '@path' => $yamlPath,
@@ -118,7 +130,7 @@ class YamlSuiteDiscovery {
         }
       }
       catch (\Exception $e) {
-        \Drupal::logger('smoke')->warning('Failed to parse custom suites: @message', [
+        $this->logger->warning('Failed to parse custom suites: @message', [
           '@message' => $e->getMessage(),
         ]);
       }
