@@ -50,6 +50,21 @@ final class TestRunner {
     ?array $remoteCredentials = NULL,
     array $options = [],
   ): array {
+    // Check Node.js version before running tests.
+    $nodeVersionError = $this->checkNodeVersion();
+    if ($nodeVersionError !== NULL) {
+      return [
+        'error' => $nodeVersionError,
+        'exitCode' => 1,
+        'ranAt' => time(),
+        'suites' => [],
+        'passed' => 0,
+        'failed' => 0,
+        'skipped' => 0,
+        'total' => 0,
+      ];
+    }
+
     // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
@@ -450,6 +465,32 @@ final class TestRunner {
 
     // Return true to signal retry should be attempted.
     return TRUE;
+  }
+
+  /**
+   * Checks if Node.js version is >= 18.
+   *
+   * @return string|null
+   *   Error message if Node.js is missing or too old, NULL if OK.
+   */
+  private function checkNodeVersion(): ?string {
+    $nodeCheck = new Process(['node', '--version']);
+    $nodeCheck->setTimeout(10);
+    $nodeCheck->run();
+
+    if (!$nodeCheck->isSuccessful()) {
+      return 'Node.js is not installed. Install Node.js 18+ to run Playwright tests.';
+    }
+
+    $nodeVersion = trim($nodeCheck->getOutput());
+    if (preg_match('/^v?(\d+)\./', $nodeVersion, $matches)) {
+      $majorVersion = (int) $matches[1];
+      if ($majorVersion < 18) {
+        return "Node.js $nodeVersion is too old. Playwright requires Node.js 18+. Upgrade at https://nodejs.org/";
+      }
+    }
+
+    return NULL;
   }
 
 }

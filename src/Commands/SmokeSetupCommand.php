@@ -107,7 +107,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('DDEV detected.');
     }
 
-    // Step 2: Check Node.js is available.
+    // Step 2: Check Node.js is available and version >= 18.
     if (!$quiet) {
       $this->step('Checking Node.js...');
     }
@@ -120,8 +120,20 @@ final class SmokeSetupCommand extends DrushCommands {
       }
       return;
     }
+    $nodeVersion = trim($nodeCheck->getOutput());
+    // Parse version like "v22.21.1" or "v18.0.0".
+    if (preg_match('/^v?(\d+)\./', $nodeVersion, $matches)) {
+      $majorVersion = (int) $matches[1];
+      if ($majorVersion < 18) {
+        if (!$quiet) {
+          $this->io()->error("Node.js $nodeVersion is too old. Playwright requires Node.js 18 or higher.");
+          $this->io()->text('    Upgrade Node.js: <options=bold>https://nodejs.org/</>');
+        }
+        return;
+      }
+    }
     if (!$quiet) {
-      $this->ok('Node.js ' . trim($nodeCheck->getOutput()));
+      $this->ok('Node.js ' . $nodeVersion);
     }
 
     // Step 3: Install npm dependencies.
