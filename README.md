@@ -238,6 +238,27 @@ Access requires the `administer smoke tests` permission.
 | `drush smoke:fix` | `sfix` | Analyze last results and auto-fix common issues |
 | `drush smoke:fix --sitemap` | — | Regenerate the XML sitemap |
 | `drush smoke:fix --all` | — | Fix all detected issues |
+| Command | Description |
+|---------|-------------|
+| `drush smoke` | Status landing page |
+| `drush smoke --run` | Run all tests with live progress bar |
+| `drush smoke --run --quick` | Fast sanity check (core_pages + auth only) |
+| `drush smoke --run --suite=SUITE` | Run specific suites |
+| `drush smoke --run --parallel` | Run suites in parallel (faster) |
+| `drush smoke --run --watch` | Watch mode for test development |
+| `drush smoke --run --junit=FILE` | CI-friendly JUnit XML output |
+| `drush smoke --run --html=DIR` | Interactive HTML report |
+| `drush smoke --run --target=URL` | Run against a remote site |
+| `drush smoke:suite webform` | Run a single suite |
+| `drush smoke:fix` | Auto-fix detected issues (`--sitemap`, `--all`) |
+| `drush smoke:list` | List detected suites |
+| `drush smoke:setup` | Set up Playwright environment |
+| `drush smoke:init` | Set up VS Code/Cursor integration and custom test directory |
+| `drush smoke:unit` | Run the module's PHPUnit tests |
+| `drush smoke:pantheon` | Show Pantheon site info or run tests (if smoke_pantheon enabled) |
+| `drush smoke:pantheon:set` | Set Pantheon site name |
+| `drush smoke:pantheon:check` | Validate Pantheon site and auth with Terminus |
+| `drush smoke:pantheon:sites` | List all Pantheon sites you have access to |
 
 ---
 
@@ -395,21 +416,29 @@ test.describe('Member Pages', () => {
 
   test('smoke_bot can access dashboard', async ({ page }) => {
     await loginAsSmokeBot(
-      page,
-      (auth as any).testUser,
-      (auth as any).testPassword,
-    );
-    const response = await page.goto('/dashboard');
-    expect(response?.status()).toBe(200);
-  });
+      ```
+      Commands
 
-});
-```
-
-### Example: conditional test (only if a module is enabled)
-
-```typescript
-import { test, expect } from '@playwright/test';
+        ▸ drush smoke                      Status landing page
+        ▸ drush smoke --run                 Run all tests
+        ▸ drush smoke --run --quick         Fast sanity check (core_pages + auth)
+        ▸ drush smoke --run --suite=SUITE   Run specific suites
+        ▸ drush smoke --run --parallel      Run suites in parallel (faster)
+        ▸ drush smoke --run --watch         Watch mode for test development
+        ▸ drush smoke --run --junit=FILE    CI-friendly JUnit XML output
+        ▸ drush smoke --run --html=DIR      Interactive HTML report
+        ▸ drush smoke --run --target=URL    Run against a remote site
+        ▸ drush smoke:suite webform         Run a single suite
+        ▸ drush smoke:fix                   Auto-fix detected issues (--sitemap, --all)
+        ▸ drush smoke:list                  List detected suites
+        ▸ drush smoke:setup                 Set up Playwright environment
+        ▸ drush smoke:init                  VS Code/Cursor integration and custom test directory
+        ▸ drush smoke:unit                  Run the module's PHPUnit tests
+        ▸ drush smoke:pantheon              Show Pantheon site info or run tests (if smoke_pantheon enabled)
+        ▸ drush smoke:pantheon:set          Set Pantheon site name
+        ▸ drush smoke:pantheon:check        Validate Pantheon site and auth with Terminus
+        ▸ drush smoke:pantheon:sites        List all Pantheon sites you have access to
+      ```
 import { isSuiteEnabled } from '../src/config-reader';
 
 // Re-use an existing suite flag, or check your own way

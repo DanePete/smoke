@@ -231,6 +231,12 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
+    // Step 6b: Copy Playwright suites + src to project root so VS Code and root config use one @playwright/test.
+    $copied = $this->copyPlaywrightToProject($projectRoot, $playwrightDir, $quiet);
+    if ($copied > 0 && !$quiet) {
+      $this->ok('Playwright suites + config copied to project root (for VS Code).');
+    }
+
     // Step 7: Verify test user and ensure permissions.
     if (!$quiet) {
       $this->step('Verifying smoke_bot test user...');
@@ -309,6 +315,19 @@ YAML;
     $hostCommandDir = $projectRoot . '/.ddev/commands/host';
     $hostCommandPath = $hostCommandDir . '/smoke-ide-setup';
     if ($isDdev && is_dir($projectRoot . '/.ddev')) {
+      // Ensure .nvmrc exists so smoke-ide-setup can use Node 18+ on the host.
+      $nvmrcPath = $projectRoot . '/.nvmrc';
+      if (!is_file($nvmrcPath)) {
+        $nodeVersion = new Process(['node', '-v'], $projectRoot);
+        $nodeVersion->run();
+        $version = trim($nodeVersion->getOutput());
+        if (preg_match('/^v?(\d+)/', $version, $m)) {
+          file_put_contents($nvmrcPath, $m[1] . "\n");
+          if (!$quiet) {
+            $this->ok('Created .nvmrc with Node ' . $m[1] . ' for host npm install.');
+          }
+        }
+      }
       if (!is_dir($hostCommandDir)) {
         mkdir($hostCommandDir, 0755, TRUE);
       }
@@ -320,11 +339,30 @@ YAML;
 
 set -e
 cd "${DDEV_APPROOT:-.}"
+# Copy Playwright suites + config from smoke module to project root (so IDE finds tests).
+if command -v ddev >/dev/null 2>&1; then
+  ddev exec drush smoke:copy-to-project 2>/dev/null || true
+fi
+# Use Node from .nvmrc so npm install runs with Node 18+ (required by Playwright/Vite/etc).
+# DDEV host commands often run without nvm in PATH, so set PATH explicitly if needed.
 if [ -f .nvmrc ]; then
-  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
     . "$NVM_DIR/nvm.sh"
-    nvm use
+    nvm use 2>/dev/null || true
+  fi
+  # If nvm use didn't run (e.g. non-interactive), prepend nvm's node for .nvmrc version
+  NODE_VER=$(cat .nvmrc | tr -d ' \n' | head -1)
+  if [ -n "$NODE_VER" ]; then
+    for dir in "$NVM_DIR/versions/node" "$HOME/.nvm/versions/node"; do
+      [ -d "$dir" ] || continue
+      for p in "$dir"/v"${NODE_VER}"*; do
+        if [ -x "$p/bin/node" ]; then
+          export PATH="$p/bin:$PATH"
+          break 2
+        fi
+      done
+    done
   fi
 fi
 npm install
@@ -353,6 +391,30 @@ BASH;
       }
     }
 
+    // Step 11b: Run global-setup in the container (one install shared across this container).
+    // Skip if already installed (e.g. second site — avoids re-downloading Chromium).
+    $home = getenv('HOME') ?: '/tmp';
+    $globalDir = $home . '/.playwright-smoke';
+    $globalAlreadyInstalled = is_dir($globalDir . '/node_modules/@playwright/test');
+    $globalSetupScript = $modulePath . '/scripts/global-setup.sh';
+    if (is_file($globalSetupScript) && !$globalAlreadyInstalled) {
+      if (!$quiet) {
+        $this->step('Running global Playwright setup (container)...');
+      }
+      $globalSetup = new Process(['bash', $globalSetupScript], $projectRoot);
+      $globalSetup->setTimeout(120);
+      $globalSetup->run();
+      if ($globalSetup->isSuccessful() && !$quiet) {
+        $this->ok('Global Playwright setup done.');
+      }
+      elseif (!$globalSetup->isSuccessful() && !$quiet) {
+        $this->warn('Global setup failed: ' . trim($globalSetup->getErrorOutput() ?: $globalSetup->getOutput()));
+      }
+    }
+    elseif ($globalAlreadyInstalled && !$quiet) {
+      $this->ok('Global Playwright already installed (skipped).');
+    }
+
     // Done.
     if (!$quiet) {
       $this->io()->newLine();
@@ -365,12 +427,76 @@ BASH;
       $this->io()->text('    <options=bold>drush smoke</>               Run all tests');
       $this->io()->text('    <options=bold>drush smoke:list</>          See detected suites');
       $this->io()->text('    <options=bold>drush smoke:suite webform</>  Run one suite');
-      if ($isDdev) {
-        $this->io()->newLine();
-        $this->io()->text('  <fg=cyan>IDE Testing sidebar:</> Run once on your host: <options=bold>ddev smoke-ide-setup</>');
-      }
       $this->io()->newLine();
     }
+  }
+
+  #[CLI\Command(name: 'smoke:copy-to-project')]
+  #[CLI\Help(description: 'Copy Playwright suites and config from the smoke module to project root (for VS Code/Cursor).')]
+  /**
+   * Copies Playwright test suites and config to project root.
+   *
+   * Used by the host command <options=bold>ddev smoke-ide-setup</> so the IDE
+   * can discover tests without running full <options=bold>drush smoke:setup</>.
+   */
+  public function copyToProject(): void {
+    if (getenv('IS_DDEV_PROJECT') !== 'true') {
+      $this->io()->error('Run inside DDEV: ddev exec drush smoke:copy-to-project');
+      return;
+    }
+    $modulePath = $this->configGenerator->getModulePath();
+    $playwrightDir = $modulePath . '/playwright';
+    $projectRoot = DRUPAL_ROOT . '/..';
+    $copied = $this->copyPlaywrightToProject($projectRoot, $playwrightDir, TRUE);
+    $this->io()->text('Copied ' . $copied . ' file(s) to project root.');
+  }
+
+  /**
+   * Copies Playwright suites, src, and config from the module to project root.
+   *
+   * @param string $projectRoot
+   *   Project root path (e.g. DRUPAL_ROOT . '/..').
+   * @param string $playwrightDir
+   *   Module's playwright directory.
+   * @param bool $quiet
+   *   If TRUE, do not output messages.
+   *
+   * @return int
+   *   Number of files copied.
+   */
+  private function copyPlaywrightToProject(string $projectRoot, string $playwrightDir, bool $quiet): int {
+    $rootPlaywright = $projectRoot . '/playwright';
+    $rootSuites = $rootPlaywright . '/suites';
+    $rootSrc = $rootPlaywright . '/src';
+    if (!is_dir($rootSuites)) {
+      mkdir($rootSuites, 0755, TRUE);
+    }
+    if (!is_dir($rootSrc)) {
+      mkdir($rootSrc, 0755, TRUE);
+    }
+    $suitesSrc = $playwrightDir . '/suites';
+    $srcSrc = $playwrightDir . '/src';
+    $copied = 0;
+    if (is_dir($suitesSrc)) {
+      foreach (glob($suitesSrc . '/*.spec.ts') ?: [] as $file) {
+        $dest = $rootSuites . '/' . basename($file);
+        copy($file, $dest);
+        $copied++;
+      }
+    }
+    if (is_dir($srcSrc)) {
+      foreach (glob($srcSrc . '/*.ts') ?: [] as $file) {
+        $dest = $rootSrc . '/' . basename($file);
+        copy($file, $dest);
+        $copied++;
+      }
+    }
+    $configJson = $playwrightDir . '/.smoke-config.json';
+    if (is_file($configJson)) {
+      copy($configJson, $rootPlaywright . '/.smoke-config.json');
+      $copied++;
+    }
+    return $copied;
   }
 
   /**
@@ -393,13 +519,12 @@ BASH;
       return;
     }
 
-    // Show the tip.
+    // Show the tip (optional: same script on your Mac for IDE).
     $this->io()->newLine();
-    $this->io()->text('  <fg=cyan;options=bold>Tip: Managing multiple Drupal sites?</>');    
-    $this->io()->text('  <fg=gray>Save ~180 MiB per project by installing Playwright globally:</>');
+    $this->io()->text('  <fg=cyan;options=bold>Tip: For IDE on your Mac?</>');
+    $this->io()->text('  <fg=gray>Run the same script on your host to use Playwright from VS Code/Cursor:</>');
     $modulePath = $this->configGenerator->getModulePath();
     $this->io()->text("  <options=bold>bash {$modulePath}/scripts/global-setup.sh</>");
-    $this->io()->text('  <fg=gray>Enables VS Code/Cursor extension support across all sites.</>');
 
     // Mark as shown.
     @file_put_contents($markerFile, date('c'));

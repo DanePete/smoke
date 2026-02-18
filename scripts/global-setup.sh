@@ -49,15 +49,29 @@ echo ""
 # Global Playwright directory
 PLAYWRIGHT_GLOBAL_DIR="${HOME}/.playwright-smoke"
 
-echo "  Installing Playwright globally to: ${PLAYWRIGHT_GLOBAL_DIR}"
-echo ""
+# Skip if already installed (e.g. multiple sites, re-run setup).
+NEED_NPM_INSTALL=true
+if [ -d "${PLAYWRIGHT_GLOBAL_DIR}/node_modules/@playwright/test" ]; then
+  NEED_NPM_INSTALL=false
+  cd "${PLAYWRIGHT_GLOBAL_DIR}"
+  if npx playwright install chromium --dry-run 2>/dev/null | grep -qi "already installed"; then
+    echo "  ✓ Playwright already installed globally at ${PLAYWRIGHT_GLOBAL_DIR}"
+    echo ""
+    exit 0
+  fi
+  cd - >/dev/null
+fi
 
-# Create directory
-mkdir -p "${PLAYWRIGHT_GLOBAL_DIR}"
+if [ "$NEED_NPM_INSTALL" = true ]; then
+  echo "  Installing Playwright globally to: ${PLAYWRIGHT_GLOBAL_DIR}"
+  echo ""
 
-# Create package.json if it doesn't exist
-if [ ! -f "${PLAYWRIGHT_GLOBAL_DIR}/package.json" ]; then
-  cat > "${PLAYWRIGHT_GLOBAL_DIR}/package.json" << 'EOF'
+  # Create directory
+  mkdir -p "${PLAYWRIGHT_GLOBAL_DIR}"
+
+  # Create package.json if it doesn't exist
+  if [ ! -f "${PLAYWRIGHT_GLOBAL_DIR}/package.json" ]; then
+    cat > "${PLAYWRIGHT_GLOBAL_DIR}/package.json" << 'EOF'
 {
   "name": "playwright-smoke-global",
   "version": "1.0.0",
@@ -68,18 +82,23 @@ if [ ! -f "${PLAYWRIGHT_GLOBAL_DIR}/package.json" ]; then
   }
 }
 EOF
+  fi
+
+  # Install Playwright
+  cd "${PLAYWRIGHT_GLOBAL_DIR}"
+  npm install
+  echo ""
 fi
 
-# Install Playwright
-cd "${PLAYWRIGHT_GLOBAL_DIR}"
-npm install
-
-echo ""
+# Install Chromium only if not already present
 echo "  Installing Chromium browser..."
 echo ""
-
-# Install only Chromium (not all browsers)
-npx playwright install chromium
+cd "${PLAYWRIGHT_GLOBAL_DIR}"
+if npx playwright install chromium --dry-run 2>/dev/null | grep -qi "already installed"; then
+  echo "  ✓ Chromium already installed"
+else
+  npx playwright install chromium
+fi
 
 echo ""
 echo "  ✓ Playwright installed globally"
