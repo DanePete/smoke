@@ -251,7 +251,7 @@ final class SmokeSetupCommand extends DrushCommands {
       );
     }
 
-    // Step 8: Ensure DDEV post-start hook exists (so config regens on ddev start).
+    // Step 8: DDEV post-start hook (config regens on start).
     $hookFile = $projectRoot . '/.ddev/config.smoke.yaml';
     if ($isDdev && is_dir($projectRoot . '/.ddev') && !is_file($hookFile)) {
       $yaml = <<<'YAML'

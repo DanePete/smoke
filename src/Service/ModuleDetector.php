@@ -198,9 +198,9 @@ final class ModuleDetector {
   }
 
   /**
-   * Creates the smoke_test webform if it doesn't already exist.
+   * Creates smoke_test webform if missing.
    *
-   * Only used when webform_id is smoke_test. Gives a known form to test against.
+   * Only when webform_id is smoke_test.
    */
   private function ensureSmokeWebform($storage): void {
     if ($storage->load('smoke_test')) {

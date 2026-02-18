@@ -42,7 +42,11 @@ final class TestRunner {
    * @return array<string, mixed>
    *   Parsed test results.
    */
-  public function run(?string $suite = NULL, ?string $targetUrl = NULL, ?array $remoteCredentials = NULL): array {
+  public function run(
+    ?string $suite = NULL,
+    ?string $targetUrl = NULL,
+    ?array $remoteCredentials = NULL,
+  ): array {
     // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
@@ -54,9 +58,7 @@ final class TestRunner {
       @unlink($resultsFile);
     }
 
-    // Don't pass --reporter here; playwright.config.ts already writes
-    // JSON to results.json. Passing on CLI would override config and
-    // send JSON to stdout, causing buffer deadlocks.
+    // Don't pass --reporter; config writes JSON. CLI would override.
     $args = [
       'npx', 'playwright', 'test',
     ];
@@ -70,8 +72,7 @@ final class TestRunner {
     $process = new Process($args, $playwrightDir);
     $process->setTimeout(300);
 
-    // Run with output enabled so launch failures (e.g. missing deps) show.
-    // Results are still read from the JSON file; stderr helps diagnose.
+    // Output enabled so launch failures show. Results from JSON file.
     $process->run();
 
     // If process failed and no results, surface stderr (e.g. launch message).
@@ -99,9 +100,7 @@ final class TestRunner {
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
 
-    // When browser fails to launch, Playwright may write results.json with
-    // truncated errors; stderr may be empty (e.g. under DDEV). Detect launch
-    // failure and set results['error'] so the run command shows the hint.
+    // Browser launch failure: set results['error'] so run command shows hint.
     $err = $process->getErrorOutput();
     $launchErrorFromStderr = $err !== ''
       && ($process->getExitCode() !== 0)

@@ -49,8 +49,8 @@ final class SmokeInstallTest extends KernelTestBase {
    */
   public function testInstallCreatesRole(): void {
     $role = Role::load('smoke_bot');
-    $this->assertNotNull($role, 'smoke_bot role should be created on install.');
-    // Assert permissions from smoke_install() (system+user only).
+    $this->assertNotNull($role, 'smoke_bot role created on install.');
+    // Permissions from smoke_install() (system+user only).
     $this->assertTrue($role->hasPermission('access site reports'));
     $this->assertTrue($role->hasPermission('administer site configuration'));
   }

@@ -52,19 +52,19 @@ final class SmokeRunCommand extends DrushCommands {
     );
   }
 
-  #[CLI\Command(name: 'smoke:run', aliases: ['smoke'])]
-  #[CLI\Help(description: 'Smoke testing for Drupal — run tests or see status.')]
-  #[CLI\Usage(name: 'drush smoke', description: 'Show status and available commands.')]
-  #[CLI\Usage(name: 'drush smoke --run', description: 'Run all smoke tests.')]
-  #[CLI\Usage(name: 'drush smoke --run --target=https://test-mysite.pantheonsite.io', description: 'Run tests against a remote URL.')]
-  #[CLI\Option(name: 'run', description: 'Run all enabled test suites.')]
-  #[CLI\Option(name: 'target', description: 'Remote URL to test. Auth/health suites auto-skip on remote.')]
   /**
    * Main entry: show landing or run all tests.
    *
    * @param array $options
    *   'run' and 'target' options.
    */
+  #[CLI\Command(name: 'smoke:run', aliases: ['smoke'])]
+  #[CLI\Help(description: 'Smoke tests — run or see status.')]
+  #[CLI\Usage(name: 'drush smoke', description: 'Show status and commands.')]
+  #[CLI\Usage(name: 'drush smoke --run', description: 'Run all smoke tests.')]
+  #[CLI\Usage(name: 'drush smoke --run --target=URL', description: 'Test remote URL.')]
+  #[CLI\Option(name: 'run', description: 'Run all enabled test suites.')]
+  #[CLI\Option(name: 'target', description: 'Remote URL. Auth/health skip on remote.')]
   public function run(array $options = ['run' => FALSE, 'target' => '']): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
@@ -343,10 +343,13 @@ final class SmokeRunCommand extends DrushCommands {
       $label = $labels[$suiteId] ?? $suiteId;
 
       // Run this suite (progress bar visible while waiting).
-      $results = $this->testRunner->run($suiteId, $targetUrl, $remoteCredentials);
+      $results = $this->testRunner->run(
+        $suiteId,
+        $targetUrl,
+        $remoteCredentials,
+      );
 
-      // If Playwright failed to launch (e.g. missing Chromium deps),
-      // show the real error and stop.
+      // If Playwright failed to launch (e.g. missing Chromium deps), stop.
       if (!empty($results['error'])) {
         $progress->clear();
         $this->io()->newLine();
