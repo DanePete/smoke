@@ -512,7 +512,8 @@ BASH;
     // Check if using global Playwright (environment variable set).
     $globalPath = getenv('PLAYWRIGHT_BROWSERS_PATH');
     if ($globalPath && is_dir($globalPath)) {
-      // Already using global — no tip needed.
+      $this->io()->newLine();
+      $this->io()->text('  <fg=green>✓</> <fg=gray>Global Playwright already installed (IDE).</>');
       return;
     }
 
