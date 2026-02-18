@@ -346,7 +346,8 @@ echo "  ─────────────────"
 echo ""
 
 # Activate nvm / .nvmrc early so the correct Node is used for every step.
-if [ -f .nvmrc ]; then
+# Set SMOKE_SKIP_NVM=1 to use current Node (e.g. to test the Node 18+ check).
+if [ -z "${SMOKE_SKIP_NVM:-}" ] && [ -f .nvmrc ]; then
   NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
     . "$NVM_DIR/nvm.sh"
