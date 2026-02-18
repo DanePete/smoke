@@ -1,0 +1,7 @@
+smoke_pantheon.settings:
+  type: config_object
+  label: 'Smoke Pantheon settings'
+  mapping:
+    site_name:
+      type: string
+      label: 'Pantheon site machine name'

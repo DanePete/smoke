@@ -211,8 +211,15 @@ final class SmokeSetupCommand extends DrushCommands {
     }
 
     // Step 5: Configure webform for smoke tests (interactive if Webform on).
-    if (!$quiet && $this->moduleHandler->moduleExists('webform')) {
-      $this->configureWebformId();
+    if (!$quiet) {
+      if ($this->moduleHandler->moduleExists('webform')) {
+        $this->configureWebformId();
+      }
+      else {
+        $this->step('Webform module...');
+        $this->io()->text('    <fg=gray>Not installed — skipping webform configuration.</>');
+        $this->io()->text('    <fg=gray>Enable webform module and re-run setup to configure.</>');
+      }
     }
 
     // Step 6: Generate config.
