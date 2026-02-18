@@ -4,7 +4,7 @@ All notable changes to the Smoke module are documented in this file.
 
 ## [Unreleased]
 
-## [1.4.1] - 2026-02-17
+## [1.4.2] - 2026-02-17
 
 ### Bug fixes
 
@@ -89,8 +89,8 @@ Initial stable release.
 - Remote testing support via `--target` flag.
 - Host setup script (`host-setup.sh`) for one-command install.
 
-[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.4.1...1.0.x
-[1.4.1]: https://git.drupalcode.org/project/smoke/-/compare/1.4.0...1.4.1
+[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.4.2...1.0.x
+[1.4.2]: https://git.drupalcode.org/project/smoke/-/compare/1.4.1...1.4.2
 [1.1.5]: https://git.drupalcode.org/project/smoke/-/compare/1.1.4...1.1.5
 [1.1.4]: https://git.drupalcode.org/project/smoke/-/compare/1.1.3...1.1.4
 [1.1.3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.2...1.1.3
