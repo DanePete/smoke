@@ -32,6 +32,8 @@ final class SmokeInstallTest extends KernelTestBase {
 
     $this->installEntitySchema('user');
     $this->installEntitySchema('user_role');
+    // users_data is required when User::delete() runs in smoke_uninstall().
+    $this->installSchema('user', ['users_data']);
     $this->installConfig(['smoke']);
 
     // KernelTestBase only loads .module files automatically. The .install
@@ -48,8 +50,9 @@ final class SmokeInstallTest extends KernelTestBase {
   public function testInstallCreatesRole(): void {
     $role = Role::load('smoke_bot');
     $this->assertNotNull($role, 'smoke_bot role should be created on install.');
-    $this->assertTrue($role->hasPermission('access content'));
-    $this->assertTrue($role->hasPermission('create page content'));
+    // Assert permissions granted by smoke_install() that exist with system+user.
+    $this->assertTrue($role->hasPermission('access site reports'));
+    $this->assertTrue($role->hasPermission('administer site configuration'));
   }
 
   /**
