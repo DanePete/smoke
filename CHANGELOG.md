@@ -4,6 +4,8 @@ All notable changes to the Smoke module are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-02-17
+
 ### Bug fixes
 
 - Fixed broken duration display in dashboard status messages (`@times` placeholder mismatch).
@@ -16,6 +18,7 @@ All notable changes to the Smoke module are documented in this file.
 - Uninstall now cleans up `smoke_test` webform and `.smoke-config.json`.
 - Added CHANGELOG.md.
 - Added PHPUnit tests for install hooks, config schema, and suite labels.
+- Code quality: PHPStan, PHPCS, CSpell, Stylelint, and kernel test fixes for pipeline.
 
 ## [1.1.0-beta3] - 2026-02-14
 
@@ -68,7 +71,8 @@ Initial stable release.
 - Remote testing support via `--target` flag.
 - Host setup script (`host-setup.sh`) for one-command install.
 
-[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta3...1.0.x
+[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.1.3...1.0.x
+[1.1.3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.2...1.1.3
 [1.1.0-beta3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta2...1.1.0-beta3
 [1.1.0-beta2]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta1...1.1.0-beta2
 [1.1.0-beta1]: https://git.drupalcode.org/project/smoke/-/compare/1.0.0...1.1.0-beta1
