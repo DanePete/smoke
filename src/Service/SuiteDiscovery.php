@@ -10,8 +10,8 @@ use Drupal\smoke\Discovery\YamlSuiteDiscovery;
 /**
  * Discovers all Smoke test suites (built-in + YAML-defined from any module).
  *
- * Drupal's pluggable approach: any module can provide suites via
- * MODULE/smoke.suites.yml. Labels and icons come from discovery, not static lists.
+ * Any module can provide suites via smoke.suites.yml; labels and icons
+ * come from discovery.
  */
 final class SuiteDiscovery {
 
@@ -25,7 +25,7 @@ final class SuiteDiscovery {
    * Returns all detected suites (built-in + YAML from installed modules).
    *
    * @return array<string, array<string, mixed>>
-   *   Suite id => [ detected, label, description, icon?, spec_path?, ... ]
+   *   Suite id => [ detected, label, description, icon?, spec_path?, ... ].
    */
   public function getSuites(): array {
     $builtIn = $this->moduleDetector->detect();
@@ -56,6 +56,7 @@ final class SuiteDiscovery {
    * Returns labels for all discovered suites (dynamic).
    *
    * @return array<string, string>
+   *   Suite id => label.
    */
   public function getLabels(): array {
     $labels = [];
@@ -68,10 +69,11 @@ final class SuiteDiscovery {
   /**
    * Returns icons for all discovered suites (dynamic).
    *
-   * YAML-defined suites use their icon; built-in suites fall back to
-   * ModuleDetector::suiteIcons() for backward compatibility.
+   * YAML-defined suites use their icon; built-in fall back to
+   * ModuleDetector::suiteIcons().
    *
    * @return array<string, string>
+   *   Suite id => icon name.
    */
   public function getIcons(): array {
     $icons = [];
@@ -110,4 +112,5 @@ final class SuiteDiscovery {
     }
     return NULL;
   }
+
 }

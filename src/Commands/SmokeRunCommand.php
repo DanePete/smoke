@@ -90,7 +90,17 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Option(name: 'detailed', description: 'Show detailed test output including individual test steps.')]
   #[CLI\Option(name: 'suite', description: 'Comma-separated list of specific suites to run (e.g., auth,webform,core_pages).')]
   #[CLI\Option(name: 'watch', description: 'Watch mode: re-run tests when spec files change.')]
-  public function run(array $options = ['run' => FALSE, 'target' => '', 'quick' => FALSE, 'junit' => '', 'html' => '', 'parallel' => FALSE, 'detailed' => FALSE, 'suite' => '', 'watch' => FALSE]): void {
+  public function run(array $options = [
+    'run' => FALSE,
+    'target' => '',
+    'quick' => FALSE,
+    'junit' => '',
+    'html' => '',
+    'parallel' => FALSE,
+    'detailed' => FALSE,
+    'suite' => '',
+    'watch' => FALSE,
+  ]): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
       $quickMode = (bool) $options['quick'];
@@ -269,7 +279,7 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Links.
     if ($baseUrl && $baseUrl !== 'unknown') {
-      $this->io()->text('   <fg=white;options=bold>Links</>');    
+      $this->io()->text('   <fg=white;options=bold>Links</>');
       $this->io()->newLine();
       $this->io()->text("      <fg=#888>Dashboard</>     <fg=#5C9EE8>{$baseUrl}/admin/reports/smoke</>");
       $this->io()->text("      <fg=#888>Settings</>      <fg=#5C9EE8>{$baseUrl}/admin/config/development/smoke</>");
@@ -665,8 +675,9 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->text('  <fg=gray>Running: ' . implode(' ', $args) . '</>');
     $this->io()->newLine();
 
+    // No timeout for interactive mode.
     $process = new Process($args, $playwrightDir, $env);
-    $process->setTimeout(0); // No timeout for interactive mode.
+    $process->setTimeout(0);
     $process->setTty(Process::isTtySupported());
     $process->run(function ($type, $buffer): void {
       $this->io()->write($buffer);

@@ -280,7 +280,7 @@ final class PantheonSiteDetector {
     $version->run();
     if ($version->isSuccessful()) {
       $output = trim($version->getOutput());
-      // Output like "Terminus 3.2.1"
+      // Output like "Terminus 3.2.1".
       if (preg_match('/(\d+\.\d+\.\d+)/', $output, $matches)) {
         $this->terminusStatus['version'] = $matches[1];
       }

@@ -138,10 +138,10 @@ final class TestRunner {
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
 
-    // When running a single suite, map all parsed suite data to the requested ID
-    // (Playwright may use describe-block titles or file names; custom/dir suites
-    // may not match). Merge so results['suites'][$suite] exists.
-    if ($suite !== null && $suite !== '' && empty($results['suites'][$suite])) {
+    // When running a single suite, map parsed suite data to the requested ID.
+    // Playwright may use describe-block titles or file names; custom/dir may
+    // not match. Merge so results['suites'][$suite] exists.
+    if ($suite !== NULL && $suite !== '' && empty($results['suites'][$suite])) {
       $results['suites'] = $this->mergeParsedSuitesIntoOne($results['suites'], $suite);
     }
 
@@ -381,11 +381,11 @@ final class TestRunner {
   }
 
   /**
-   * Merges all parsed suite results into a single suite (for single-suite runs).
+   * Merges parsed suite results into one (for single-suite runs).
    *
-   * When running one suite (file or directory), Playwright may report multiple
-   * suite titles (e.g. describe blocks). Merge them so the requested suite ID
-   * has the combined results.
+   * When running one suite (file or directory), Playwright may report
+   * multiple suite titles (e.g. describe blocks). Merge so the requested
+   * suite ID has the combined results.
    *
    * @param array<string, array<string, mixed>> $suites
    *   Parsed suites keyed by resolved/slugified ID.
@@ -393,6 +393,7 @@ final class TestRunner {
    *   The requested suite ID to use as the key.
    *
    * @return array<string, array<string, mixed>>
+   *   Merged suite keyed by $targetId.
    */
   private function mergeParsedSuitesIntoOne(array $suites, string $targetId): array {
     $merged = [

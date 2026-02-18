@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Service;
 
-use Drupal\smoke\SmokeConstants;
-
 /**
  * Generates JUnit XML reports from smoke test results.
  *
@@ -14,7 +12,7 @@ use Drupal\smoke\SmokeConstants;
  * - GitLab CI
  * - Jenkins
  * - CircleCI
- * - Azure DevOps
+ * - Azure DevOps.
  */
 final class JunitReporter {
 

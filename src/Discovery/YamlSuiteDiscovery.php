@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Discovery;
 
-use Drupal\Component\Discovery\YamlDirectoryDiscovery;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Discovers smoke suites defined in YAML files.
@@ -78,7 +78,7 @@ class YamlSuiteDiscovery {
       }
 
       try {
-        $suites = \Symfony\Component\Yaml\Yaml::parse($yaml);
+        $suites = Yaml::parse($yaml);
         if (!is_array($suites)) {
           continue;
         }
@@ -92,10 +92,13 @@ class YamlSuiteDiscovery {
         }
       }
       catch (\Exception $e) {
-        \Drupal::logger('smoke')->warning('Failed to parse @path: @message', [
-          '@path' => $yamlPath,
-          '@message' => $e->getMessage(),
-        ]);
+        \Drupal::logger('smoke')->warning(
+          'Failed to parse @path: @message',
+          [
+            '@path' => $yamlPath,
+            '@message' => $e->getMessage(),
+          ]
+        );
       }
     }
 
@@ -104,7 +107,7 @@ class YamlSuiteDiscovery {
     if (file_exists($customPath)) {
       try {
         $yaml = file_get_contents($customPath);
-        $suites = \Symfony\Component\Yaml\Yaml::parse($yaml);
+        $suites = Yaml::parse($yaml);
         if (is_array($suites)) {
           foreach ($suites as $id => $definition) {
             if (!is_array($definition)) {

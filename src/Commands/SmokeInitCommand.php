@@ -45,7 +45,7 @@ final class SmokeInitCommand extends DrushCommands {
    * - playwright.config.ts at project root
    * - playwright-smoke/suites/ directory for custom tests
    * - Example custom suite template
-   * - .gitignore entries for test artifacts
+   * - .gitignore entries for test artifacts.
    */
   #[CLI\Command(name: 'smoke:init', aliases: ['smoke-init'])]
   #[CLI\Help(description: 'Initialize Smoke for VS Code / Cursor Playwright extension integration.')]

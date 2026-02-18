@@ -16,6 +16,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class SettingsForm extends ConfigFormBase {
 
+  /**
+   * The suite discovery service.
+   */
   private readonly SuiteDiscovery $suiteDiscovery;
 
   /**

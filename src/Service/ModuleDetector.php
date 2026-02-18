@@ -59,7 +59,6 @@ final class ModuleDetector {
 
     // Accessibility (axe-core). Commented out for now.
     // $suites['accessibility'] = $this->detectAccessibility();
-
     return $suites;
   }
 

@@ -432,7 +432,7 @@ BASH;
     if (!$quiet) {
       $this->io()->newLine();
       $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      $this->io()->text('  <fg=green;options=bold>Setup complete.</>');      
+      $this->io()->text('  <fg=green;options=bold>Setup complete.</>');
       // One-time agency tip: mention global installation on first setup.
       $this->showAgencyTip($playwrightDir);
       $this->io()->newLine();

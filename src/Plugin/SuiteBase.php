@@ -150,7 +150,7 @@ abstract class SuiteBase extends PluginBase implements SuiteInterface, Container
    * {@inheritdoc}
    */
   public function getSpecPath(): ?string {
-    // Default: look for spec file in the provider module's playwright/suites directory.
+    // Default: look for spec in provider module's playwright/suites dir.
     $provider = $this->getProvider();
 
     if ($provider === 'smoke') {
