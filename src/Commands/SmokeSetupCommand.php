@@ -645,8 +645,8 @@ BASH;
   /**
    * Offers to add Composer post-update/install scripts to the project root.
    *
-   * Appends drush cr + drush smoke --run so tests run automatically after
-   * composer install or composer update. Skips if already present.
+   * Appends ddev drush cr + ddev drush smoke --run so tests run inside the
+   * container after composer install or composer update. Skips if already present.
    */
   private function configureComposerScripts(string $projectRoot): void {
     $composerFile = $projectRoot . '/composer.json';
@@ -664,14 +664,19 @@ BASH;
       return;
     }
 
-    $smokeCmd = './vendor/bin/drush smoke --run';
-    $crCmd = './vendor/bin/drush cr';
+    // Use ddev drush so tests run inside the container where Playwright is installed.
+    $smokeCmd = 'ddev drush smoke --run';
+    $crCmd = 'ddev drush cr';
 
-    // Check if smoke is already wired up in either hook.
+    // Check if smoke is already wired up in either hook (any form).
     $postUpdate = $data['scripts']['post-update-cmd'] ?? [];
     $postInstall = $data['scripts']['post-install-cmd'] ?? [];
+    $alreadySmoke = static function (array $scripts): bool {
+      return in_array('ddev drush smoke --run', $scripts, TRUE)
+        || in_array('./vendor/bin/drush smoke --run', $scripts, TRUE);
+    };
 
-    if (is_array($postUpdate) && in_array($smokeCmd, $postUpdate, TRUE)) {
+    if (is_array($postUpdate) && $alreadySmoke($postUpdate)) {
       $this->ok('Composer post-update-cmd already includes smoke tests.');
       return;
     }
