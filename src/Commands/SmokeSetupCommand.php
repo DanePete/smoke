@@ -522,7 +522,7 @@ BASH;
     else {
       $scriptRel = 'web/modules/contrib/smoke/scripts/global-setup.sh';
     }
-    if ($this->io()->isInteractive()) {
+    if ($this->input()->isInteractive()) {
       $answer = $this->io()->ask(
         '  Path to global-setup.sh from your project root (press Enter to use default)',
         $scriptRel,
