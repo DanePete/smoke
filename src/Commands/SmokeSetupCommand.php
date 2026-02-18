@@ -231,7 +231,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
-    // Step 6b: Copy Playwright suites + src to project root so VS Code and root config use one @playwright/test.
+    // Step 6b: Copy Playwright suites + src to project root (VS Code / root config).
     $copied = $this->copyPlaywrightToProject($projectRoot, $playwrightDir, $quiet);
     if ($copied > 0 && !$quiet) {
       $this->ok('Playwright suites + config copied to project root (for VS Code).');
@@ -300,7 +300,7 @@ YAML;
       $this->configureComposerScripts($projectRoot);
     }
 
-    // Step 10: Ensure project root has @playwright/test (container) so Drush can run tests.
+    // Step 10: Ensure project root has @playwright/test so Drush can run tests.
     $npmInstall = new Process(
       ['npm', 'install', '--save-dev', '@playwright/test'],
       $projectRoot,
@@ -311,7 +311,7 @@ YAML;
       $this->ok('Project root has @playwright/test (container).');
     }
 
-    // Step 10b: When DDEV, install host command so the user can run npm on the host for the IDE.
+    // Step 10b: DDEV host command so user can run npm on host for IDE.
     $hostCommandDir = $projectRoot . '/.ddev/commands/host';
     $hostCommandPath = $hostCommandDir . '/smoke-ide-setup';
     if ($isDdev && is_dir($projectRoot . '/.ddev')) {
@@ -424,7 +424,8 @@ BASH;
         $this->ok('Global Playwright setup done.');
       }
       elseif (!$globalSetup->isSuccessful() && !$quiet) {
-        $this->warn('Global setup failed: ' . trim($globalSetup->getErrorOutput() ?: $globalSetup->getOutput()));
+        $err = $globalSetup->getErrorOutput() ?: $globalSetup->getOutput();
+        $this->warn('Global setup failed: ' . trim($err));
       }
     }
 
@@ -517,7 +518,7 @@ BASH;
   }
 
   /**
-   * Shows a one-line next step for IDE + global Playwright (no prompt, no path).
+   * Shows a one-line next step for IDE + global Playwright.
    *
    * @param string $playwrightDir
    *   Path to the Playwright directory.
@@ -792,9 +793,9 @@ BASH;
       }
     }
 
-    // Strategy 1b: On any install-deps failure, try fixing expired Sury apt key and retry (apt error may not appear in captured output).
+    // Strategy 1b: On install-deps failure, fix Sury apt key and retry.
     if (!$quiet) {
-      $this->io()->text('    <fg=yellow>Playwright install-deps failed, fixing Sury apt key (if needed) and retrying...</>');
+      $this->io()->text('    <fg=yellow>Fixing Sury apt key (if needed) and retrying...</>');
     }
     $this->fixSuryAptKey($playwrightDir);
     $installDeps->run();

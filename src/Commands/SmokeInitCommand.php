@@ -79,7 +79,7 @@ final class SmokeInitCommand extends DrushCommands {
       $skipped[] = 'playwright.config.ts (exists, use --force to overwrite)';
     }
 
-    // 2. Ensure project root has @playwright/test so the IDE extension can run tests.
+    // 2. Ensure project root has @playwright/test for IDE.
     $npmInstall = new Process(
       ['npm', 'install', '--save-dev', '@playwright/test'],
       $projectRoot,

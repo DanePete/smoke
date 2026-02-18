@@ -90,17 +90,19 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Option(name: 'detailed', description: 'Show detailed test output including individual test steps.')]
   #[CLI\Option(name: 'suite', description: 'Comma-separated list of specific suites to run (e.g., auth,webform,core_pages).')]
   #[CLI\Option(name: 'watch', description: 'Watch mode: re-run tests when spec files change.')]
-  public function run(array $options = [
-    'run' => FALSE,
-    'target' => '',
-    'quick' => FALSE,
-    'junit' => '',
-    'html' => '',
-    'parallel' => FALSE,
-    'detailed' => FALSE,
-    'suite' => '',
-    'watch' => FALSE,
-  ]): void {
+  public function run(
+    array $options = [
+      'run' => FALSE,
+      'target' => '',
+      'quick' => FALSE,
+      'junit' => '',
+      'html' => '',
+      'parallel' => FALSE,
+      'detailed' => FALSE,
+      'suite' => '',
+      'watch' => FALSE,
+    ],
+  ): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
       $quickMode = (bool) $options['quick'];
