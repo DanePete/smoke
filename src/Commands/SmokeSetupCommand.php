@@ -391,13 +391,9 @@ BASH;
       }
     }
 
-    // Step 11b: Run global-setup in the container (one install shared across this container).
-    // Skip if already installed (e.g. second site — avoids re-downloading Chromium).
-    $home = getenv('HOME') ?: '/tmp';
-    $globalDir = $home . '/.playwright-smoke';
-    $globalAlreadyInstalled = is_dir($globalDir . '/node_modules/@playwright/test');
+    // Step 11b: Run global-setup in the container (script skips if already installed).
     $globalSetupScript = $modulePath . '/scripts/global-setup.sh';
-    if (is_file($globalSetupScript) && !$globalAlreadyInstalled) {
+    if (is_file($globalSetupScript)) {
       if (!$quiet) {
         $this->step('Running global Playwright setup (container)...');
       }
@@ -411,9 +407,6 @@ BASH;
         $this->warn('Global setup failed: ' . trim($globalSetup->getErrorOutput() ?: $globalSetup->getOutput()));
       }
     }
-    elseif ($globalAlreadyInstalled && !$quiet) {
-      $this->ok('Global Playwright already installed (skipped).');
-    }
 
     // Done.
     if (!$quiet) {
@@ -424,9 +417,13 @@ BASH;
       $this->showAgencyTip($playwrightDir);
       $this->io()->newLine();
       $this->io()->text('  Commands:');
-      $this->io()->text('    <options=bold>drush smoke</>               Run all tests');
-      $this->io()->text('    <options=bold>drush smoke:list</>          See detected suites');
-      $this->io()->text('    <options=bold>drush smoke:suite webform</>  Run one suite');
+      $this->io()->text('    <options=bold>drush smoke</>                  Run all tests');
+      $this->io()->text('    <options=bold>drush smoke:list</>             See detected suites');
+      $this->io()->text('    <options=bold>drush smoke:suite [name]</>      Run one suite');
+      $this->io()->text('    <options=bold>drush smoke:setup</>            Set up Playwright');
+      $this->io()->text('    <options=bold>drush smoke:copy-to-project</>  Copy to project for IDE');
+      $this->io()->text('    <options=bold>drush smoke:init</>             Initialize for VS Code/Cursor');
+      $this->io()->text('    <options=bold>drush smoke:fix</>              Auto-fix common issues');
       $this->io()->newLine();
     }
   }
@@ -519,12 +516,28 @@ BASH;
       return;
     }
 
-    // Show the tip (optional: same script on your Mac for IDE).
+    // Show the tip (optional: same script on your Mac for IDE). Path relative to project root for host.
+    $projectRoot = dirname(DRUPAL_ROOT);
+    $modulePath = $this->configGenerator->getModulePath();
+    $realProject = realpath($projectRoot);
+    $realModule = realpath($modulePath);
+    if ($realProject && $realModule && str_starts_with($realModule, $realProject)) {
+      $scriptRel = str_replace([$realProject . DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR], ['', '/'], $realModule) . '/scripts/global-setup.sh';
+    }
+    else {
+      $scriptRel = 'web/modules/contrib/smoke/scripts/global-setup.sh';
+    }
+    if ($this->io()->isInteractive()) {
+      $answer = $this->io()->ask(
+        '  Path to global-setup.sh from your project root (press Enter to use default)',
+        $scriptRel,
+      );
+      $scriptRel = is_string($answer) && trim($answer) !== '' ? trim($answer) : $scriptRel;
+    }
     $this->io()->newLine();
     $this->io()->text('  <fg=cyan;options=bold>Tip: For IDE on your Mac?</>');
-    $this->io()->text('  <fg=gray>Run the same script on your host to use Playwright from VS Code/Cursor:</>');
-    $modulePath = $this->configGenerator->getModulePath();
-    $this->io()->text("  <options=bold>bash {$modulePath}/scripts/global-setup.sh</>");
+    $this->io()->text('  <fg=gray>From your project root on your host:</>');
+    $this->io()->text("  <options=bold>bash {$scriptRel}</>");
 
     // Mark as shown.
     @file_put_contents($markerFile, date('c'));

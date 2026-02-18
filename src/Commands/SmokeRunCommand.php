@@ -254,10 +254,14 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->newLine();
     $this->io()->text('   <fg=white;options=bold>Commands</>');
     $this->io()->newLine();
-    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run</>           <fg=#666>Run all tests</>');
-    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:suite webform</>   <fg=#666>Run one suite</>');
-    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run --quick</>   <fg=#666>Fast sanity check</>');
-    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:setup</>           <fg=#666>Regenerate config</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run</>                  <fg=#666>Run all tests</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:list</>                   <fg=#666>See detected suites</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:suite [name]</>             <fg=#666>Run one suite</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run --quick</>          <fg=#666>Fast sanity check</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:setup</>                  <fg=#666>Set up Playwright</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:copy-to-project</>         <fg=#666>Copy to project for IDE</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:init</>                   <fg=#666>Initialize for VS Code/Cursor</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:fix</>                    <fg=#666>Auto-fix common issues</>');
     $this->io()->newLine();
 
     // Agency tip (one-time).
