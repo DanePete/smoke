@@ -90,31 +90,27 @@ final class TestRunner {
     // Output enabled so launch failures show. Results from JSON file.
     $process->run();
 
-    // Check for browser launch failure and attempt auto-recovery.
-    $err = $process->getErrorOutput();
-    $isLaunchFailure = $err !== ''
-      && $process->getExitCode() !== 0
-      && (str_contains($err, 'browserType.launch')
-        || str_contains($err, 'Failed to launch')
-        || str_contains($err, 'Executable doesn\'t exist'));
-
-    if ($isLaunchFailure && !($options['_retried'] ?? FALSE)) {
-      // Attempt auto-recovery: install browser deps and retry once.
-      $recovered = $this->attemptBrowserRecovery($playwrightDir);
-      if ($recovered) {
-        // Retry the test run with a flag to prevent infinite loop.
-        $options['_retried'] = TRUE;
-        return $this->run($suite, $targetUrl, $remoteCredentials, $options);
-      }
-    }
-
     // If process failed and no results, surface stderr (e.g. launch message).
     $resultsFileContent = file_exists($resultsFile)
       ? (file_get_contents($resultsFile) ?: '')
       : '';
+    $err = $process->getErrorOutput();
+    
     if ($process->getExitCode() !== 0 && $resultsFileContent === '') {
-      $err = $process->getErrorOutput();
       if ($err !== '') {
+        // Check if this is a browser launch failure we can recover from.
+        $isLaunchFailure = str_contains($err, 'browserType.launch')
+          || str_contains($err, 'Failed to launch')
+          || str_contains($err, 'Executable doesn\'t exist')
+          || str_contains($err, 'Host system is missing dependencies');
+
+        if ($isLaunchFailure && !($options['_retried'] ?? FALSE)) {
+          // Attempt auto-recovery: install browser deps and retry once.
+          $this->attemptBrowserRecovery($playwrightDir);
+          $options['_retried'] = TRUE;
+          return $this->run($suite, $targetUrl, $remoteCredentials, $options);
+        }
+
         $results = $this->parseResults('');
         $results['error'] = 'Playwright failed. ' . trim($err);
         $results['exitCode'] = $process->getExitCode();
@@ -133,21 +129,29 @@ final class TestRunner {
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
 
-    // Browser launch failure: set results['error'] so run command shows hint.
-    $err = $process->getErrorOutput();
+    // Browser launch failure: check both stderr and test results.
     $launchErrorFromStderr = $err !== ''
       && ($process->getExitCode() !== 0)
-      && (str_contains($err, 'browserType.launch') || str_contains($err, 'Failed to launch'));
+      && (str_contains($err, 'browserType.launch')
+        || str_contains($err, 'Failed to launch')
+        || str_contains($err, 'Host system is missing dependencies'));
+    $launchFailureInTests = $this->hasBrowserLaunchFailureInResults($results);
+
+    if (($launchErrorFromStderr || $launchFailureInTests) && !($options['_retried'] ?? FALSE)) {
+      // Attempt auto-recovery and retry once.
+      $this->attemptBrowserRecovery($playwrightDir);
+      $options['_retried'] = TRUE;
+      return $this->run($suite, $targetUrl, $remoteCredentials, $options);
+    }
+
+    // Set error message for display if browser launch failed.
     if ($launchErrorFromStderr) {
       $results['error'] = trim($err);
     }
-    else {
-      $launchFailureInTests = $this->hasBrowserLaunchFailureInResults($results);
-      if ($launchFailureInTests) {
-        $results['error'] = trim($err) !== ''
-          ? trim($err)
-          : 'Chromium could not be launched. Install browser and system deps.';
-      }
+    elseif ($launchFailureInTests) {
+      $results['error'] = trim($err) !== ''
+        ? trim($err)
+        : 'Chromium could not be launched. Install browser and system deps.';
     }
 
     if ($suite) {
@@ -427,15 +431,20 @@ final class TestRunner {
 
     // If that failed, try direct apt-get as fallback.
     if (!$installDeps->isSuccessful()) {
+      // Comprehensive list of Chromium dependencies.
       $aptInstall = new Process(
         ['sudo', '-n', 'apt-get', 'install', '-y',
           'libnss3', 'libnspr4', 'libatk1.0-0', 'libatk-bridge2.0-0',
           'libcups2', 'libdrm2', 'libxkbcommon0', 'libxcomposite1',
           'libxdamage1', 'libxfixes3', 'libxrandr2', 'libgbm1', 'libasound2',
+          'libpangocairo-1.0-0', 'libpango-1.0-0', 'libcairo2',
+          'libatspi2.0-0', 'libgtk-3-0', 'libgdk-pixbuf2.0-0',
+          'libx11-xcb1', 'libxcb-dri3-0', 'libxcb1', 'libxshmfence1',
+          'libglib2.0-0', 'libnss3-tools',
         ],
         $playwrightDir,
       );
-      $aptInstall->setTimeout(60);
+      $aptInstall->setTimeout(120);
       $aptInstall->run();
     }
 
