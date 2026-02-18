@@ -4,6 +4,21 @@ All notable changes to the Smoke module are documented in this file.
 
 ## [Unreleased]
 
+## [1.4.14] - 2026-02-17
+
+### Added
+
+- Pluggable suite architecture: any module can provide test suites via `smoke.suites.yml` and `playwright/suites/` (or `spec_path`). No symlinks or manual config.
+- `SuiteDiscovery` service merges built-in suites with YAML-defined suites from installed modules.
+- `smoke_example` submodule: complete example with `smoke.suites.yml`, working specs, and README for creating custom suites.
+
+### Changed
+
+- External suite specs are copied into Smoke's `playwright/suites/` at run time and cleaned up after; imports use `../../src/helpers` and `../../src/config-reader`.
+- Playwright config simplified to single `testDir` (no dynamic projects).
+- Commands and settings form use `SuiteDiscovery` instead of `ModuleDetector` for suite list and labels.
+- Removed hardcoded Example suite from ModuleDetector; `smoke_example` demonstrates the YAML plugin pattern only.
+
 ## [1.4.5] - 2026-02-18
 
 ### Changed
