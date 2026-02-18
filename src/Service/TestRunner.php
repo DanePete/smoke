@@ -62,7 +62,7 @@ final class TestRunner {
     ];
 
     if ($suite) {
-      // Suite IDs use underscores (core_pages) but filenames use dashes (core-pages.spec.ts).
+      // Suite IDs use underscores (core_pages), filenames use dashes.
       $suiteFile = str_replace('_', '-', $suite);
       $args[] = 'suites/' . $suiteFile . '.spec.ts';
     }
@@ -70,12 +70,14 @@ final class TestRunner {
     $process = new Process($args, $playwrightDir);
     $process->setTimeout(300);
 
-    // Run with output enabled so browser launch failures (e.g. missing deps) show the real error.
-    // Results are still read from the JSON file; stdout/stderr help diagnose browserType.launch failures.
+    // Run with output enabled so launch failures (e.g. missing deps) show.
+    // Results are still read from the JSON file; stderr helps diagnose.
     $process->run();
 
-    // If process failed and we have no results, surface stderr so user sees e.g. browserType.launch message.
-    $resultsFileContent = file_exists($resultsFile) ? (file_get_contents($resultsFile) ?: '') : '';
+    // If process failed and no results, surface stderr (e.g. launch message).
+    $resultsFileContent = file_exists($resultsFile)
+      ? (file_get_contents($resultsFile) ?: '')
+      : '';
     if ($process->getExitCode() !== 0 && $resultsFileContent === '') {
       $err = $process->getErrorOutput();
       if ($err !== '') {
@@ -90,15 +92,20 @@ final class TestRunner {
     }
 
     // Read results from the file written by Playwright's JSON reporter.
-    $output = file_exists($resultsFile) ? (file_get_contents($resultsFile) ?: '') : '';
+    $output = file_exists($resultsFile)
+      ? (file_get_contents($resultsFile) ?: '')
+      : '';
     $results = $this->parseResults($output);
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
 
-    // When browser fails to launch, Playwright may write results.json with truncated errors and stderr may be empty (e.g. under DDEV).
-    // Detect launch failure from stderr or from any failed test error, then set results['error'] so the run command stops and shows the hint.
+    // When browser fails to launch, Playwright may write results.json with
+    // truncated errors; stderr may be empty (e.g. under DDEV). Detect launch
+    // failure and set results['error'] so the run command shows the hint.
     $err = $process->getErrorOutput();
-    $launchErrorFromStderr = $err !== '' && ($process->getExitCode() !== 0) && (str_contains($err, 'browserType.launch') || str_contains($err, 'Failed to launch'));
+    $launchErrorFromStderr = $err !== ''
+      && ($process->getExitCode() !== 0)
+      && (str_contains($err, 'browserType.launch') || str_contains($err, 'Failed to launch'));
     if ($launchErrorFromStderr) {
       $results['error'] = trim($err);
     }
@@ -107,7 +114,7 @@ final class TestRunner {
       if ($launchFailureInTests) {
         $results['error'] = trim($err) !== ''
           ? trim($err)
-          : 'Chromium could not be launched (browserType.launch failed). Install browser and system deps.';
+          : 'Chromium could not be launched. Install browser and system deps.';
       }
     }
 

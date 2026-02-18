@@ -58,7 +58,13 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Usage(name: 'drush smoke --run', description: 'Run all smoke tests.')]
   #[CLI\Usage(name: 'drush smoke --run --target=https://test-mysite.pantheonsite.io', description: 'Run tests against a remote URL.')]
   #[CLI\Option(name: 'run', description: 'Run all enabled test suites.')]
-  #[CLI\Option(name: 'target', description: 'Remote URL to test against (e.g. https://test-mysite.pantheonsite.io). Auth/health suites auto-skip on remote.')]
+  #[CLI\Option(name: 'target', description: 'Remote URL to test. Auth/health suites auto-skip on remote.')]
+  /**
+   * Main entry: show landing or run all tests.
+   *
+   * @param array $options
+   *   'run' and 'target' options.
+   */
   public function run(array $options = ['run' => FALSE, 'target' => '']): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
@@ -339,7 +345,8 @@ final class SmokeRunCommand extends DrushCommands {
       // Run this suite (progress bar visible while waiting).
       $results = $this->testRunner->run($suiteId, $targetUrl, $remoteCredentials);
 
-      // If Playwright failed to launch (e.g. missing Chromium deps), show the real error and stop.
+      // If Playwright failed to launch (e.g. missing Chromium deps),
+      // show the real error and stop.
       if (!empty($results['error'])) {
         $progress->clear();
         $this->io()->newLine();
