@@ -234,70 +234,81 @@ final class TestRunner {
     $totalSkipped = 0;
     $totalDuration = 0;
 
-    // Playwright JSON format: { suites: [ { title, specs: [ ... ] } ] }.
-    foreach (($data['suites'] ?? []) as $pwSuite) {
-      $suiteId = $this->resolveSuiteId($pwSuite['title'] ?? '');
-      if (!$suiteId) {
-        $suiteId = $this->slugify($pwSuite['title'] ?? 'unknown');
-      }
+    // Playwright JSON: file-level suites contain nested named suites.
+    // Structure: { suites: [{ title: "file.spec.ts", suites: [{ title: "Name", specs: [...] }] }] }
+    foreach (($data['suites'] ?? []) as $fileSuite) {
+      // Process nested named suites (the actual test suites like "Core Pages").
+      foreach (($fileSuite['suites'] ?? []) as $pwSuite) {
+        $suiteId = $this->resolveSuiteId($pwSuite['title'] ?? '');
+        if (!$suiteId) {
+          $suiteId = $this->slugify($pwSuite['title'] ?? 'unknown');
+        }
 
-      $tests = [];
-      $suitePassed = 0;
-      $suiteFailed = 0;
-      $suiteSkipped = 0;
-      $suiteDuration = 0;
+        $tests = [];
+        $suitePassed = 0;
+        $suiteFailed = 0;
+        $suiteSkipped = 0;
+        $suiteDuration = 0;
 
-      foreach ($this->flattenSpecs($pwSuite) as $spec) {
-        $status = 'passed';
-        $duration = 0;
-        $errorMessage = '';
+        foreach ($this->flattenSpecs($pwSuite) as $spec) {
+          $status = 'passed';
+          $duration = 0;
+          $errorMessage = '';
 
-        foreach (($spec['tests'] ?? []) as $test) {
-          foreach (($test['results'] ?? []) as $result) {
-            $duration += (int) ($result['duration'] ?? 0);
-            if (($result['status'] ?? '') === 'failed') {
-              $status = 'failed';
-              $errorMessage = $result['error']['message'] ?? '';
-            }
-            elseif (($result['status'] ?? '') === 'skipped') {
+          foreach (($spec['tests'] ?? []) as $test) {
+            // Check test-level status first (for skipped tests with empty results).
+            $testStatus = $test['status'] ?? 'passed';
+            if ($testStatus === 'skipped') {
               $status = 'skipped';
             }
+            elseif ($testStatus === 'failed') {
+              $status = 'failed';
+            }
+
+            // Then check individual results for more details.
+            foreach (($test['results'] ?? []) as $result) {
+              $duration += (int) ($result['duration'] ?? 0);
+              if (($result['status'] ?? '') === 'failed') {
+                $status = 'failed';
+                $errorMessage = $result['error']['message'] ?? '';
+              }
+            }
           }
+
+          if ($status === 'passed') {
+            $suitePassed++;
+          }
+          elseif ($status === 'failed') {
+            $suiteFailed++;
+          }
+          else {
+            $suiteSkipped++;
+          }
+          $suiteDuration += $duration;
+
+          $tests[] = [
+            'title' => $spec['title'] ?? 'Unknown test',
+            'status' => $status,
+            'duration' => $duration,
+            'error' => $errorMessage,
+          ];
         }
 
-        if ($status === 'passed') {
-          $suitePassed++;
-        }
-        elseif ($status === 'failed') {
-          $suiteFailed++;
-        }
-        else {
-          $suiteSkipped++;
-        }
-        $suiteDuration += $duration;
+        $totalPassed += $suitePassed;
+        $totalFailed += $suiteFailed;
+        $totalSkipped += $suiteSkipped;
+        $totalDuration += $suiteDuration;
 
-        $tests[] = [
-          'title' => $spec['title'] ?? 'Unknown test',
-          'status' => $status,
-          'duration' => $duration,
-          'error' => $errorMessage,
+        $suites[$suiteId] = [
+          'title' => $pwSuite['title'] ?? $suiteId,
+          'tests' => $tests,
+          'passed' => $suitePassed,
+          'failed' => $suiteFailed,
+          'skipped' => $suiteSkipped,
+          'duration' => $suiteDuration,
+          'status' => $suiteFailed > 0 ? 'failed' : 'passed',
         ];
       }
-
-      $totalPassed += $suitePassed;
-      $totalFailed += $suiteFailed;
-      $totalSkipped += $suiteSkipped;
-      $totalDuration += $suiteDuration;
-
-      $suites[$suiteId] = [
-        'title' => $pwSuite['title'] ?? $suiteId,
-        'tests' => $tests,
-        'passed' => $suitePassed,
-        'failed' => $suiteFailed,
-        'skipped' => $suiteSkipped,
-        'duration' => $suiteDuration,
-        'status' => $suiteFailed > 0 ? 'failed' : 'passed',
-      ];
     }
 
     return [
