@@ -148,13 +148,10 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Header.
     $this->io()->newLine();
-    $this->io()->text('  <fg=cyan>  ___  __  __   ___   _  __ ___</>');
-    $this->io()->text('  <fg=cyan> / __|/  \/  \ / _ \ | |/ /| __|</>');
-    $this->io()->text('  <fg=cyan> \__ \ |\/| || (_) ||   < | _|</>');
-    $this->io()->text('  <fg=cyan> |___/_|  |_| \___/ |_|\_\|___|</>');
-    $this->io()->newLine();
-    $this->io()->text("  <fg=gray>{$siteName} · {$baseUrl}</>");
-    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->printLogo();
+    $this->io()->text("   <fg=white;options=bold>{$siteName}</>");
+    $this->io()->text("   <fg=gray>{$baseUrl}</>");
+    $this->io()->text('   <fg=#555>─────────────────────────────────────────────────</>');
     $this->io()->newLine();
 
     // Status — auto-run setup if possible.
@@ -203,21 +200,21 @@ final class SmokeRunCommand extends DrushCommands {
       $date = date('M j, g:ia', $lastRun);
 
       if ($failed === 0 && $passed > 0) {
-        $this->io()->text("  <fg=green;options=bold>✓ ALL CLEAR</>  {$passed} passed in {$duration}s");
+        $this->io()->text("   <fg=#98D8AA;options=bold>✓ ALL CLEAR</>  {$passed} passed in {$duration}s");
       }
       elseif ($failed > 0) {
-        $this->io()->text("  <fg=red;options=bold>✕ {$failed} FAILED</>  {$passed} passed, {$failed} failed in {$duration}s");
+        $this->io()->text("   <fg=#FF6B6B;options=bold>✕ {$failed} FAILED</>  {$passed} passed, {$failed} failed in {$duration}s");
       }
-      $this->io()->text("  <fg=gray>Last run: {$date}</>");
+      $this->io()->text("   <fg=#666>Last run: {$date}</>");
       $this->io()->newLine();
     }
     else {
-      $this->io()->text('  <fg=blue>●</> No tests run yet.');
+      $this->io()->text('   <fg=#FFB347>●</> No tests run yet.');
       $this->io()->newLine();
     }
 
     // Detected suites.
-    $this->io()->text('  <options=bold>Suites</>');
+    $this->io()->text('   <fg=white;options=bold>Suites</>');
     $this->io()->newLine();
 
     foreach ($labels as $id => $label) {
@@ -226,41 +223,41 @@ final class SmokeRunCommand extends DrushCommands {
       $result = $lastResults['suites'][$id] ?? NULL;
 
       if (!$isDetected) {
-        $icon = '<fg=gray>○</>';
-        $status = '<fg=gray>not detected</>';
+        $icon = '<fg=#555>○</>';
+        $status = '<fg=#555>not detected</>';
       }
       elseif (!$isEnabled) {
-        $icon = '<fg=yellow>—</>';
-        $status = '<fg=yellow>disabled</>';
+        $icon = '<fg=#FFD700>─</>';
+        $status = '<fg=#FFD700>disabled</>';
       }
       elseif ($result && ($result['failed'] ?? 0) === 0 && ($result['passed'] ?? 0) > 0) {
         $p = (int) ($result['passed'] ?? 0);
         $t = number_format(($result['duration'] ?? 0) / 1000, 1);
-        $icon = '<fg=green>✓</>';
-        $status = "<fg=green>{$p} passed</> <fg=gray>{$t}s</>";
+        $icon = '<fg=#98D8AA>✓</>';
+        $status = "<fg=#98D8AA>{$p} passed</> <fg=#666>{$t}s</>";
       }
       elseif ($result && ($result['failed'] ?? 0) > 0) {
         $f = (int) ($result['failed'] ?? 0);
-        $icon = '<fg=red>✕</>';
-        $status = "<fg=red>{$f} failed</>";
+        $icon = '<fg=#FF6B6B>✕</>';
+        $status = "<fg=#FF6B6B>{$f} failed</>";
       }
       else {
-        $icon = '<fg=blue>●</>';
-        $status = '<fg=blue>ready</>';
+        $icon = '<fg=#FFB347>●</>';
+        $status = '<fg=#FFB347>ready</>';
       }
 
       $paddedLabel = str_pad($label, 18);
-      $this->io()->text("    {$icon} {$paddedLabel}{$status}");
+      $this->io()->text("      {$icon} {$paddedLabel}{$status}");
     }
 
     // Commands.
     $this->io()->newLine();
-    $this->io()->text('  <options=bold>Commands</>');
+    $this->io()->text('   <fg=white;options=bold>Commands</>');
     $this->io()->newLine();
-    $this->io()->text('    <options=bold>ddev drush smoke --run</>         Run all tests');
-    $this->io()->text('    <options=bold>ddev drush smoke:suite webform</>  Run one suite');
-    $this->io()->text('    <options=bold>ddev drush smoke --run --target=URL</>  Test a remote site');
-    $this->io()->text('    <options=bold>ddev drush smoke:setup</>         Regenerate config');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run</>           <fg=#666>Run all tests</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:suite webform</>   <fg=#666>Run one suite</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke --run --quick</>   <fg=#666>Fast sanity check</>');
+    $this->io()->text('      <fg=#FFB347>▸</> <fg=white>drush smoke:setup</>           <fg=#666>Regenerate config</>');
     $this->io()->newLine();
 
     // Agency tip (one-time).
@@ -268,15 +265,14 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Links.
     if ($baseUrl && $baseUrl !== 'unknown') {
-      $this->io()->text('  <options=bold>Links</>');    
+      $this->io()->text('   <fg=white;options=bold>Links</>');    
       $this->io()->newLine();
-      $this->io()->text("    Dashboard:     {$baseUrl}/admin/reports/smoke");
-      $this->io()->text("    Settings:      {$baseUrl}/admin/config/development/smoke");
-      $this->io()->text("    Status report: {$baseUrl}/admin/reports/status");
+      $this->io()->text("      <fg=#888>Dashboard</>     <fg=#5C9EE8>{$baseUrl}/admin/reports/smoke</>");
+      $this->io()->text("      <fg=#888>Settings</>      <fg=#5C9EE8>{$baseUrl}/admin/config/development/smoke</>");
       $hasWebform = !empty($detected['webform']['detected']);
       if ($hasWebform) {
         $webformId = (string) ($detected['webform']['form']['id'] ?? $this->configFactory->get('smoke.settings')->get('webform_id') ?? 'smoke_test');
-        $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
+        $this->io()->text("      <fg=#888>Submissions</>   <fg=#5C9EE8>{$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions</>");
       }
       $this->io()->newLine();
     }
@@ -335,19 +331,16 @@ final class SmokeRunCommand extends DrushCommands {
     $hasTerminus = $remoteCredentials !== NULL;
 
     $this->io()->newLine();
-    $this->io()->text("  <options=bold>Smoke Tests</> — {$siteName}");
+    $this->printLogo();
+    $this->io()->text("   <fg=white;options=bold>{$siteName}</>");
+    $this->io()->text("   <fg=gray>{$displayUrl}</>");
     if ($targetUrl && $hasTerminus) {
-      $this->io()->text("  <fg=magenta;options=bold>REMOTE + TERMINUS</>  {$displayUrl}");
-      $this->io()->text('  <fg=gray>Auth enabled via Terminus — all suites will run.</>');
+      $this->io()->text("   <fg=magenta>◆</> <fg=magenta;options=bold>REMOTE + TERMINUS</>");
     }
     elseif ($targetUrl) {
-      $this->io()->text("  <fg=magenta;options=bold>REMOTE</>  {$displayUrl}");
-      $this->io()->text('  <fg=gray>Auth & health suites will auto-skip (no smoke_bot on remote).</>');
+      $this->io()->text("   <fg=magenta>◆</> <fg=magenta;options=bold>REMOTE</>");
     }
-    else {
-      $this->io()->text("  <fg=gray>{$displayUrl}</>");
-    }
-    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->io()->text('   <fg=#555>─────────────────────────────────────────────────</>');
     $this->io()->newLine();
 
     // Determine which suites to run.
@@ -414,13 +407,13 @@ final class SmokeRunCommand extends DrushCommands {
     $this->state->set('smoke.last_results', []);
 
     // Configure progress bar.
-    $format = "  <fg=cyan>▸</> %message:-18s%  %bar%  %current%/%max% suites  <fg=gray>%elapsed:6s%</>";
+    $format = "   <fg=#FFB347>▸</> %message:-18s%  %bar%  <fg=#888>%current%/%max%</>";
     ProgressBar::setFormatDefinition('smoke', $format);
     $progress = new ProgressBar($this->io(), $totalSuites);
     $progress->setFormat('smoke');
-    $progress->setBarCharacter('<fg=green>━</>');
-    $progress->setEmptyBarCharacter('<fg=gray>─</>');
-    $progress->setProgressCharacter('<fg=cyan>▸</>');
+    $progress->setBarCharacter('<fg=#98D8AA>█</>');
+    $progress->setEmptyBarCharacter('<fg=#333>░</>');
+    $progress->setProgressCharacter('<fg=#FFB347>▸</>');
     $progress->setBarWidth(20);
 
     $totalPassed = 0;
@@ -472,21 +465,32 @@ final class SmokeRunCommand extends DrushCommands {
       // Clear progress bar, print suite result.
       $progress->clear();
 
-      $badge = $failed > 0
-        ? "<fg=red>✕ {$failed} failed</>"
-        : "<fg=green>✓ {$passed} passed</>";
+      if ($failed > 0) {
+        $badge = "<fg=#FF6B6B>✕ {$failed} failed</>";
+      }
+      elseif ($passed > 0) {
+        $badge = "<fg=#98D8AA>✓ {$passed} passed</>";
+      }
+      else {
+        $badge = "<fg=#FFD700>○ skipped</>";
+      }
       $paddedLabel = str_pad($label, 18);
-      $this->io()->text("  {$paddedLabel}{$badge}  <fg=gray>{$time}s</>");
+      $this->io()->text("   {$paddedLabel}{$badge}  <fg=#666>{$time}s</>");
 
       // Show individual failed tests inline.
       if ($failed > 0) {
         foreach (($suiteResult['tests'] ?? []) as $test) {
           if (($test['status'] ?? '') === 'failed') {
             $testTime = number_format(($test['duration'] ?? 0) / 1000, 1);
-            $this->io()->text("    <fg=red>✕</> {$test['title']}  <fg=gray>{$testTime}s</>");
+            $this->io()->text("      <fg=#FF6B6B>└──</> <fg=#FF8C8C>{$test['title']}</>  <fg=#666>{$testTime}s</>");
             if (!empty($test['error'])) {
               $error = (string) preg_replace('/\x1b\[[0-9;]*m/', '', $test['error']);
-              $this->io()->text('      <fg=red>' . substr($error, 0, 200) . '</>');
+              $errorLines = explode("\n", substr($error, 0, 300));
+              foreach (array_slice($errorLines, 0, 2) as $line) {
+                if (trim($line)) {
+                  $this->io()->text("          <fg=#888>" . trim($line) . "</>");
+                }
+              }
             }
           }
         }
@@ -509,22 +513,17 @@ final class SmokeRunCommand extends DrushCommands {
     $totalDuration = number_format(microtime(TRUE) - $startTime, 1);
 
     $this->io()->newLine();
-    $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    $this->io()->text('   <fg=#555>─────────────────────────────────────────────────</>');
 
     if ($totalFailed === 0 && $totalPassed > 0) {
-      $this->io()->newLine();
-      $this->io()->text('  <fg=green>  *  *  *  *  *  *  *  *  *  *  *</>');
-      $this->io()->text("  <fg=green;options=bold>  ✓  ALL CLEAR</>  {$totalPassed} passed in {$totalDuration}s");
-      $this->io()->text('  <fg=green>  *  *  *  *  *  *  *  *  *  *  *</>');
+      $this->printSuccessBanner($totalPassed, $totalDuration);
     }
     elseif ($totalFailed > 0) {
-      $this->io()->newLine();
-      $this->io()->text('  <fg=red>  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓</>');
-      $this->io()->text("  <fg=red;options=bold>  ✕  FAILURES</>   {$totalPassed} passed, {$totalFailed} failed in {$totalDuration}s");
-      $this->io()->text('  <fg=red>  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓  ▓</>');
+      $this->printFailureBanner($totalPassed, $totalFailed, $totalDuration);
     }
     else {
-      $this->io()->text('  No tests ran.');
+      $this->io()->newLine();
+      $this->io()->text('   <fg=yellow>⚠  No tests ran.</>');
     }
 
     // Remote explanation.
@@ -713,6 +712,46 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Mark as shown.
     @file_put_contents($markerFile, date('c'));
+  }
+
+  /**
+   * Prints the Smoke ASCII logo.
+   */
+  private function printLogo(): void {
+    $this->io()->text('<fg=#888>   ┌─────────────────────────────────────────────────┐</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>███████╗</><fg=#FF8C42>███╗   ███╗</><fg=#FFB347> ██████╗ </><fg=#FFD700>██╗  ██╗</><fg=#98D8AA>███████╗</>  <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>██╔════╝</><fg=#FF8C42>████╗ ████║</><fg=#FFB347>██╔═══██╗</><fg=#FFD700>██║ ██╔╝</><fg=#98D8AA>██╔════╝</>  <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>███████╗</><fg=#FF8C42>██╔████╔██║</><fg=#FFB347>██║   ██║</><fg=#FFD700>█████╔╝ </><fg=#98D8AA>█████╗</>    <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>╚════██║</><fg=#FF8C42>██║╚██╔╝██║</><fg=#FFB347>██║   ██║</><fg=#FFD700>██╔═██╗ </><fg=#98D8AA>██╔══╝</>    <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>███████║</><fg=#FF8C42>██║ ╚═╝ ██║</><fg=#FFB347>╚██████╔╝</><fg=#FFD700>██║  ██╗</><fg=#98D8AA>███████╗</>  <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   │</>  <fg=#FF6B35>╚══════╝</><fg=#FF8C42>╚═╝     ╚═╝</><fg=#FFB347> ╚═════╝ </><fg=#FFD700>╚═╝  ╚═╝</><fg=#98D8AA>╚══════╝</>  <fg=#888>│</>');
+    $this->io()->text('<fg=#888>   └─────────────────────────────────────────────────┘</>');
+  }
+
+  /**
+   * Prints the success banner.
+   */
+  private function printSuccessBanner(int $passed, string $duration): void {
+    $this->io()->newLine();
+    $this->io()->text('   <fg=#98D8AA>╔═══════════════════════════════════════════════╗</>');
+    $this->io()->text('   <fg=#98D8AA>║</>                                               <fg=#98D8AA>║</>');
+    $this->io()->text("   <fg=#98D8AA>║</>   <fg=#98D8AA;options=bold>✓  ALL TESTS PASSED</>                         <fg=#98D8AA>║</>");
+    $this->io()->text("   <fg=#98D8AA>║</>   <fg=white>{$passed} passed</> in <fg=white>{$duration}s</>                         <fg=#98D8AA>║</>");
+    $this->io()->text('   <fg=#98D8AA>║</>                                               <fg=#98D8AA>║</>');
+    $this->io()->text('   <fg=#98D8AA>╚═══════════════════════════════════════════════╝</>');
+  }
+
+  /**
+   * Prints the failure banner.
+   */
+  private function printFailureBanner(int $passed, int $failed, string $duration): void {
+    $this->io()->newLine();
+    $this->io()->text('   <fg=#FF6B6B>╔═══════════════════════════════════════════════╗</>');
+    $this->io()->text('   <fg=#FF6B6B>║</>                                               <fg=#FF6B6B>║</>');
+    $this->io()->text("   <fg=#FF6B6B>║</>   <fg=#FF6B6B;options=bold>✕  TESTS FAILED</>                             <fg=#FF6B6B>║</>");
+    $this->io()->text("   <fg=#FF6B6B>║</>   <fg=white>{$passed} passed</>, <fg=#FF6B6B>{$failed} failed</> in <fg=white>{$duration}s</>               <fg=#FF6B6B>║</>");
+    $this->io()->text('   <fg=#FF6B6B>║</>                                               <fg=#FF6B6B>║</>');
+    $this->io()->text('   <fg=#FF6B6B>╚═══════════════════════════════════════════════╝</>');
   }
 
 }
