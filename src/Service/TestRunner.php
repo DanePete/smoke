@@ -47,10 +47,23 @@ final class TestRunner {
     ?string $targetUrl = NULL,
     ?array $remoteCredentials = NULL,
   ): array {
+    $playwrightDir = $this->getPlaywrightDir();
+
+    // Require Node 20+ before running Playwright.
+    $nodeError = $this->checkNodeVersion($playwrightDir);
+    if ($nodeError !== NULL) {
+      $results = $this->parseResults('');
+      $results['error'] = $nodeError;
+      $results['exitCode'] = 1;
+      $results['ranAt'] = time();
+      $this->state->set('smoke.last_results', $results);
+      $this->state->set('smoke.last_run', $results['ranAt']);
+      return $results;
+    }
+
     // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
-    $playwrightDir = $this->getPlaywrightDir();
     $resultsFile = $playwrightDir . '/results.json';
 
     // Remove stale results file.
@@ -356,6 +369,32 @@ final class TestRunner {
       'skipped' => $skipped,
       'duration' => $duration,
     ];
+  }
+
+  /**
+   * Checks that Node.js 20+ is available.
+   *
+   * @param string $playwrightDir
+   *   Playwright directory (used as process cwd).
+   *
+   * @return string|null
+   *   NULL if OK, or an error message to show the user.
+   */
+  private function checkNodeVersion(string $playwrightDir): ?string {
+    $process = new Process(['node', '--version'], $playwrightDir);
+    $process->setTimeout(10);
+    $process->run();
+    if (!$process->isSuccessful()) {
+      return 'Node.js is not installed. Smoke requires Node.js 20+ (e.g. nvm use 20).';
+    }
+    $output = trim($process->getOutput());
+    if (preg_match('/^v?(\d+)\./', $output, $matches)) {
+      $major = (int) $matches[1];
+      if ($major < 20) {
+        return "Node.js {$output} is too old. Use Node 20 or newer (e.g. nvm use 20).";
+      }
+    }
+    return NULL;
   }
 
   /**

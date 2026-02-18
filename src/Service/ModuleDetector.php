@@ -57,8 +57,8 @@ final class ModuleDetector {
     // Content creation round-trip. Always available.
     $suites['content'] = $this->detectContent();
 
-    // Accessibility (axe-core). Always available.
-    $suites['accessibility'] = $this->detectAccessibility();
+    // Accessibility (axe-core). Commented out for now.
+    // $suites['accessibility'] = $this->detectAccessibility();
 
     return $suites;
   }
@@ -79,7 +79,7 @@ final class ModuleDetector {
       'health' => 'Health',
       'sitemap' => 'Sitemap',
       'content' => 'Content',
-      'accessibility' => 'Accessibility',
+      // 'accessibility' => 'Accessibility',
     ];
   }
 
@@ -99,7 +99,7 @@ final class ModuleDetector {
       'health' => 'medical',
       'sitemap' => 'sitemap',
       'content' => 'content',
-      'accessibility' => 'accessibility',
+      // 'accessibility' => 'accessibility',
     ];
   }
 

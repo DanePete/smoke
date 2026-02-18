@@ -1,0 +1,10 @@
+services:
+  smoke_pantheon.commands:
+    class: Drupal\smoke_pantheon\Commands\SmokePantheonCommand
+    arguments:
+      - '@smoke_pantheon.site_detector'
+      - '@smoke.test_runner'
+      - '@smoke.module_detector'
+      - '@config.factory'
+    tags:
+      - { name: drush.command }

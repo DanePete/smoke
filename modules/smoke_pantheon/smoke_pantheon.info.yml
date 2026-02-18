@@ -1,0 +1,7 @@
+name: 'Smoke Pantheon'
+type: module
+description: 'Auto-detect and test Pantheon dev/test/live environments.'
+package: Development
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - smoke:smoke

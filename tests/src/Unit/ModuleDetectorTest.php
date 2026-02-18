@@ -27,7 +27,7 @@ final class ModuleDetectorTest extends TestCase {
     'health',
     'sitemap',
     'content',
-    'accessibility',
+    // 'accessibility',  // Commented out for now.
   ];
 
   /**

@@ -7,7 +7,7 @@ suites:
   health: true
   sitemap: true
   content: true
-  accessibility: true
+  accessibility: false  # Disabled for now; re-enable in ModuleDetector when needed.
 webform_id: smoke_test
 custom_urls: []
 timeout: 30000

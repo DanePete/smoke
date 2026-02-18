@@ -12,9 +12,8 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Requirements](#requirements)
-- [Install](#install)
-- [Setup](#setup)
 - [Running Tests](#running-tests)
 - [Admin Dashboard](#admin-dashboard)
 - [Drush Commands](#drush-commands)
@@ -22,6 +21,7 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 - [Configuration](#configuration)
 - [Custom URLs](#custom-urls)
 - [Adding Custom Tests](#adding-custom-tests)
+- [Plugin System](#plugin-system)
 - [After Module Updates](#after-module-updates)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
@@ -238,6 +238,27 @@ Access requires the `administer smoke tests` permission.
 | `drush smoke:fix` | `sfix` | Analyze last results and auto-fix common issues |
 | `drush smoke:fix --sitemap` | — | Regenerate the XML sitemap |
 | `drush smoke:fix --all` | — | Fix all detected issues |
+| Command | Description |
+|---------|-------------|
+| `drush smoke` | Status landing page |
+| `drush smoke --run` | Run all tests with live progress bar |
+| `drush smoke --run --quick` | Fast sanity check (core_pages + auth only) |
+| `drush smoke --run --suite=SUITE` | Run specific suites |
+| `drush smoke --run --parallel` | Run suites in parallel (faster) |
+| `drush smoke --run --watch` | Watch mode for test development |
+| `drush smoke --run --junit=FILE` | CI-friendly JUnit XML output |
+| `drush smoke --run --html=DIR` | Interactive HTML report |
+| `drush smoke --run --target=URL` | Run against a remote site |
+| `drush smoke:suite webform` | Run a single suite |
+| `drush smoke:fix` | Auto-fix detected issues (`--sitemap`, `--all`) |
+| `drush smoke:list` | List detected suites |
+| `drush smoke:setup` | Set up Playwright environment |
+| `drush smoke:init` | Set up VS Code/Cursor integration and custom test directory |
+| `drush smoke:unit` | Run the module's PHPUnit tests |
+| `drush smoke:pantheon` | Show Pantheon site info or run tests (if smoke_pantheon enabled) |
+| `drush smoke:pantheon:set` | Set Pantheon site name |
+| `drush smoke:pantheon:check` | Validate Pantheon site and auth with Terminus |
+| `drush smoke:pantheon:sites` | List all Pantheon sites you have access to |
 
 ---
 
@@ -395,21 +416,29 @@ test.describe('Member Pages', () => {
 
   test('smoke_bot can access dashboard', async ({ page }) => {
     await loginAsSmokeBot(
-      page,
-      (auth as any).testUser,
-      (auth as any).testPassword,
-    );
-    const response = await page.goto('/dashboard');
-    expect(response?.status()).toBe(200);
-  });
+      ```
+      Commands
 
-});
-```
-
-### Example: conditional test (only if a module is enabled)
-
-```typescript
-import { test, expect } from '@playwright/test';
+        ▸ drush smoke                      Status landing page
+        ▸ drush smoke --run                 Run all tests
+        ▸ drush smoke --run --quick         Fast sanity check (core_pages + auth)
+        ▸ drush smoke --run --suite=SUITE   Run specific suites
+        ▸ drush smoke --run --parallel      Run suites in parallel (faster)
+        ▸ drush smoke --run --watch         Watch mode for test development
+        ▸ drush smoke --run --junit=FILE    CI-friendly JUnit XML output
+        ▸ drush smoke --run --html=DIR      Interactive HTML report
+        ▸ drush smoke --run --target=URL    Run against a remote site
+        ▸ drush smoke:suite webform         Run a single suite
+        ▸ drush smoke:fix                   Auto-fix detected issues (--sitemap, --all)
+        ▸ drush smoke:list                  List detected suites
+        ▸ drush smoke:setup                 Set up Playwright environment
+        ▸ drush smoke:init                  VS Code/Cursor integration and custom test directory
+        ▸ drush smoke:unit                  Run the module's PHPUnit tests
+        ▸ drush smoke:pantheon              Show Pantheon site info or run tests (if smoke_pantheon enabled)
+        ▸ drush smoke:pantheon:set          Set Pantheon site name
+        ▸ drush smoke:pantheon:check        Validate Pantheon site and auth with Terminus
+        ▸ drush smoke:pantheon:sites        List all Pantheon sites you have access to
+      ```
 import { isSuiteEnabled } from '../src/config-reader';
 
 // Re-use an existing suite flag, or check your own way
@@ -535,6 +564,102 @@ Now `git push` will run the full smoke suite first. If any test fails, the push 
 
 > **Tip:** To share this hook with your team, store it in a tracked directory (e.g. `scripts/hooks/pre-push`) and have each developer symlink it:
 > `ln -sf ../../scripts/hooks/pre-push .git/hooks/pre-push`
+
+---
+
+## Agency Setup: Global Playwright Installation
+
+For agencies managing many Drupal sites, downloading Chromium (~180 MiB) for every project is wasteful. Two approaches exist for sharing a single browser installation across projects.
+
+### Option 1: Host-side Global Install (Recommended)
+
+Install Playwright once on your Mac, outside of DDEV. This is the **recommended approach** because:
+- The VS Code / Cursor Playwright extension discovers the installation automatically
+- Browser updates happen once, not per-project
+- Tests can run from your IDE or from `ddev` commands
+
+#### Setup
+
+Run the global setup script (included in the module):
+
+```bash
+bash web/modules/contrib/smoke/scripts/global-setup.sh
+```
+
+This script:
+1. Creates `~/.playwright-smoke/` with a standalone Node/Playwright installation
+2. Installs only Chromium (not Firefox or WebKit) — saves ~300 MiB
+3. Adds the installation to your shell PATH (`~/.zshrc` or `~/.bashrc`)
+4. Sets `PLAYWRIGHT_BROWSERS_PATH` so all projects share the same browser
+
+After running the script, restart your terminal or run `source ~/.zshrc`.
+
+#### Verify
+
+```bash
+playwright --version
+# Should output: Version 1.x.x
+
+ls ~/.playwright-smoke/browsers
+# Should show chromium-* directory
+```
+
+#### VS Code / Cursor Integration
+
+Once Playwright is installed globally:
+1. Open your Drupal project in VS Code or Cursor
+2. Run `ddev drush smoke:init` to create a project-level `playwright.config.ts`
+3. Install the **Playwright Test for VS Code** extension
+4. Click the beaker icon → the extension finds your Smoke suites automatically
+
+Tests run directly from your IDE using the global browser — no per-project setup needed.
+
+### Option 2: DDEV Shared Docker Volume
+
+If you prefer keeping everything inside Docker, you can share the browser cache across all DDEV projects using a named volume.
+
+#### Setup
+
+Copy the example config to your DDEV global config directory:
+
+```bash
+mkdir -p ~/.ddev/global_config.d
+cp web/modules/contrib/smoke/scripts/docker-compose.playwright-cache.yaml \
+   ~/.ddev/global_config.d/docker-compose.playwright-cache.yaml
+ddev restart
+```
+
+Now all DDEV projects share the same `ddev-playwright-browsers` Docker volume.
+
+#### First-time browser install
+
+After adding the global config, install browsers once from any project:
+
+```bash
+ddev exec "npx playwright install chromium"
+```
+
+The browser is stored in the shared volume. Future projects skip the download.
+
+#### Per-project setup (still required)
+
+Each project still needs npm dependencies:
+
+```bash
+ddev exec "cd web/modules/contrib/smoke/playwright && npm install"
+```
+
+But the ~180 MiB browser download only happens once.
+
+### Comparison
+
+| Approach | Browser Disk | IDE Support | Runs In |
+|----------|-------------|-------------|---------|
+| Host-side global | ~180 MiB total | ✅ Full | Mac + DDEV |
+| DDEV shared volume | ~180 MiB total | ❌ Limited | DDEV only |
+| Per-project (default) | ~180 MiB × projects | ✅ Full | DDEV only |
+
+For most agencies, **host-side global** is the best choice: one install, full IDE support, runs anywhere.
 
 ---
 

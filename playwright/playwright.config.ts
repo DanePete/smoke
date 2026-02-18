@@ -2,6 +2,14 @@ import { defineConfig, devices } from '@playwright/test';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
+// Enforce Node 20+ (required for Playwright and this config).
+const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+if (nodeMajor < 20) {
+  throw new Error(
+    `Node ${process.versions.node} is too old. Use Node 20 or newer (e.g. nvm use 20).`
+  );
+}
+
 // Read the Drupal-generated config.
 const configPath = resolve(__dirname, '.smoke-config.json');
 let smokeConfig: Record<string, any> = {};
@@ -22,6 +30,7 @@ export default defineConfig({
   workers: 1,
 
   reporter: [
+    ['list'],  // Console output for IDE and terminal.
     ['json', { outputFile: 'results.json' }],
   ],
 

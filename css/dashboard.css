@@ -19,9 +19,9 @@
 .smoke-intro {
   margin-bottom: 2rem;
   padding: 1.5rem 1.75rem;
+  background: var(--gin-bg-layer, #f5f5f5);
   border: 1px solid var(--gin-border-color, #e0e0e0);
   border-radius: 8px;
-  background: var(--gin-bg-layer, #f5f5f5);
 }
 
 .smoke-intro__title {
@@ -32,9 +32,9 @@
 
 .smoke-intro__lead {
   margin: 0 0 1.25rem;
-  color: var(--gin-color-text, #222);
   font-size: 1rem;
   line-height: 1.55;
+  color: var(--gin-color-text, #222);
 }
 
 .smoke-intro__subtitle {
@@ -70,9 +70,9 @@
 }
 
 .smoke-doc__summary {
-  list-style: none;
-  cursor: pointer;
   font-weight: 600;
+  cursor: pointer;
+  list-style: none;
 }
 
 .smoke-doc__summary::-webkit-details-marker {
@@ -80,11 +80,11 @@
 }
 
 .smoke-doc__summary::before {
+  content: '▶';
   display: inline-block;
   margin-right: 0.5rem;
-  content: "▶";
-  transition: transform 0.2s;
   font-size: 0.7rem;
+  transition: transform 0.2s;
 }
 
 .smoke-doc[open] > .smoke-doc__summary::before {
@@ -112,9 +112,9 @@
 
 .smoke-doc__suite p {
   margin: 0 0 0.5rem;
-  opacity: 0.9;
   font-size: 0.9rem;
   line-height: 1.45;
+  opacity: 0.9;
 }
 
 .smoke-doc__suite ul {
@@ -129,32 +129,32 @@
 }
 
 .smoke-doc__suite code {
-  padding: 0.15rem 0.4rem;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.06);
   font-size: 0.8rem;
+  padding: 0.15rem 0.4rem;
+  background: rgb(0 0 0 / 0.06);
+  border-radius: 3px;
 }
 
 /* ── Setup banner ── */
 
 .smoke-banner {
   display: flex;
+  gap: 1rem;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
   padding: 1.25rem 1.5rem;
   border-radius: 8px;
-  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .smoke-banner--setup {
-  border: 1px solid var(--gin-color-primary, #1565c0);
   background: var(--gin-color-primary-light, #e8f0fe);
+  border: 1px solid var(--gin-color-primary, #1565c0);
 }
 
 .smoke-banner__icon {
-  flex-shrink: 0;
   font-size: 1.5rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .smoke-banner__content p {
@@ -165,11 +165,11 @@
 .smoke-code {
   display: inline-block;
   padding: 0.35rem 0.75rem;
-  letter-spacing: 0.02em;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
-  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  background: rgb(0 0 0 / 0.06);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.9rem;
+  letter-spacing: 0.02em;
 }
 
 /* ── Summary bar ── */
@@ -178,26 +178,26 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid;
-  border-radius: 8px;
   gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid;
 }
 
 .smoke-summary--passed {
-  border-color: #86efac;
   background: #f0fdf4;
+  border-color: #86efac;
 }
 
 .smoke-summary--warning {
-  border-color: #fcd34d;
   background: #fffbeb;
+  border-color: #fcd34d;
 }
 
 .smoke-summary--failed {
-  border-color: #fca5a5;
   background: #fef2f2;
+  border-color: #fca5a5;
 }
 
 .smoke-summary__stats {
@@ -207,8 +207,8 @@
 }
 
 .smoke-stat {
-  color: #374151;
   font-size: 0.9rem;
+  color: #374151;
 }
 
 .smoke-stat--failed strong {
@@ -220,14 +220,14 @@
 }
 
 .smoke-stat--duration {
-  margin-left: auto;
   opacity: 0.5;
+  margin-left: auto;
 }
 
 .smoke-summary__time {
-  width: 100%;
-  opacity: 0.55;
   font-size: 0.8rem;
+  opacity: 0.55;
+  width: 100%;
 }
 
 /* ── Badges ── */
@@ -235,45 +235,45 @@
 .smoke-badge {
   display: inline-flex;
   align-items: center;
+  gap: 0.3rem;
   padding: 0.2rem 0.65rem;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 600;
-  gap: 0.3rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .smoke-badge--passed {
-  color: #166534;
   background: #dcfce7;
+  color: #166534;
 }
 
 .smoke-badge--failed {
-  color: #991b1b;
   background: #fee2e2;
+  color: #991b1b;
 }
 
 .smoke-badge--warning {
-  color: #92400e;
   background: #fef3c7;
+  color: #92400e;
 }
 
 .smoke-badge--skipped {
-  color: #6b7280;
   background: #f3f4f6;
+  color: #6b7280;
 }
 
 .smoke-badge--idle {
-  color: #9ca3af;
   background: #f3f4f6;
+  color: #9ca3af;
 }
 
 /* ── Ready banner ── */
 
 .smoke-banner--ready {
-  border: 1px solid #93c5fd;
   background: #f0f9ff;
+  border: 1px solid #93c5fd;
 }
 
 /* ── Actions ── */
@@ -286,26 +286,24 @@
 }
 
 .smoke-actions__env {
-  letter-spacing: 0.01em;
-  color: #9ca3af;
-  font-family: "SF Mono", "Fira Code", Consolas, monospace;
   font-size: 0.8rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #9ca3af;
+  letter-spacing: 0.01em;
 }
 
 .smoke-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   padding: 0.6rem 1.4rem;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    transform 0.1s;
   border: none;
   border-radius: 6px;
   font-size: 0.9rem;
   font-weight: 600;
-  gap: 0.4rem;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
 }
 
 .smoke-btn:active {
@@ -313,8 +311,8 @@
 }
 
 .smoke-btn--primary {
-  color: #fff;
   background: var(--gin-color-primary, #1565c0);
+  color: #fff;
 }
 
 .smoke-btn--primary:hover {
@@ -323,10 +321,10 @@
 
 .smoke-btn--small {
   padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  background: #f3f4f6;
   color: #374151;
   border: 1px solid #d1d5db;
-  background: #f3f4f6;
-  font-size: 0.8rem;
 }
 
 .smoke-btn--small:hover {
@@ -342,17 +340,15 @@
 }
 
 .smoke-card {
-  overflow: hidden;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .smoke-card:hover {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
 }
 
 .smoke-card--passed {
@@ -364,8 +360,8 @@
 }
 
 .smoke-card--skipped {
-  opacity: 0.65;
   border-left: 3px solid #d1d5db;
+  opacity: 0.65;
 }
 
 .smoke-card--not_run {
@@ -391,8 +387,8 @@
 
 .smoke-card__desc {
   margin: 0.35rem 0 0;
-  opacity: 0.6;
   font-size: 0.8rem;
+  opacity: 0.6;
   line-height: 1.4;
 }
 
@@ -440,9 +436,9 @@
 
 .smoke-table__time {
   text-align: right;
-  white-space: nowrap;
   color: #9ca3af;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .smoke-table__error-row td {
@@ -450,16 +446,16 @@
 }
 
 .smoke-error {
-  overflow-y: auto;
-  max-height: 80px;
   margin: 0;
   padding: 0.5rem 0.75rem;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: #991b1b;
-  border-radius: 4px;
   background: #fef2f2;
+  border-radius: 4px;
   font-size: 0.75rem;
+  color: #991b1b;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 /* ── Card footer ── */
@@ -480,9 +476,9 @@
 }
 
 .smoke-card__count {
-  color: #6b7280;
   font-size: 0.8rem;
   font-weight: 600;
+  color: #6b7280;
   font-variant-numeric: tabular-nums;
 }
 
@@ -492,30 +488,30 @@
 }
 
 .smoke-link {
-  transition: opacity 0.15s;
+  font-size: 0.78rem;
+  color: var(--gin-color-primary, #1565c0);
   text-decoration: none;
   opacity: 0.8;
-  color: var(--gin-color-primary, #1565c0);
-  font-size: 0.78rem;
+  transition: opacity 0.15s;
 }
 
 .smoke-link:hover {
-  text-decoration: underline;
   opacity: 1;
+  text-decoration: underline;
 }
 
 .smoke-link--action {
-  padding: 2px 8px;
-  cursor: pointer;
+  background: none;
   border: 1px solid var(--gin-color-primary, #1565c0);
   border-radius: 3px;
-  background: none;
+  cursor: pointer;
+  padding: 2px 8px;
   font-family: inherit;
 }
 
 .smoke-link--action:hover {
-  color: #fff;
   background: var(--gin-color-primary, #1565c0);
+  color: #fff;
 }
 
 .smoke-link-form {
@@ -530,12 +526,12 @@
   display: inline-block;
   margin-top: 0.35rem;
   padding: 0.15rem 0.5rem;
-  letter-spacing: 0.02em;
-  color: #6b7280;
   border-radius: 3px;
   background: #f3f4f6;
-  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.7rem;
+  color: #6b7280;
+  letter-spacing: 0.02em;
 }
 
 /* ── Details panel ── */
@@ -546,12 +542,12 @@
 
 .smoke-details__toggle {
   padding: 0.6rem 1.25rem;
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-  color: var(--gin-color-primary, #1565c0);
   font-size: 0.78rem;
   font-weight: 600;
+  color: var(--gin-color-primary, #1565c0);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
 }
 
 .smoke-details__toggle::-webkit-details-marker {
@@ -559,11 +555,11 @@
 }
 
 .smoke-details__toggle::before {
-  content: "▸ ";
+  content: '▸ ';
 }
 
 .smoke-details[open] > .smoke-details__toggle::before {
-  content: "▾ ";
+  content: '▾ ';
 }
 
 .smoke-details__content {
@@ -578,66 +574,66 @@
 
 .smoke-detail-group__title {
   margin: 0 0 0.3rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #6b7280;
   font-size: 0.75rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
 }
 
 .smoke-detail-list {
   margin: 0;
   padding: 0 0 0 1.2rem;
-  color: #374151;
   font-size: 0.8rem;
   line-height: 1.6;
+  color: #374151;
 }
 
 .smoke-detail-list--checks li {
-  margin-left: -1.2rem;
-  padding-left: 0;
   list-style: none;
+  padding-left: 0;
+  margin-left: -1.2rem;
 }
 
 .smoke-detail-list--checks li::before {
-  content: "○ ";
+  content: '○ ';
   color: #9ca3af;
 }
 
 .smoke-mono {
-  padding: 0.1rem 0.35rem;
-  word-break: break-all;
-  color: #374151;
-  border-radius: 3px;
-  background: #f3f4f6;
-  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.78rem;
+  background: #f3f4f6;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  color: #374151;
+  word-break: break-all;
 }
 
 /* ── Detail tables ── */
 
 .smoke-detail-table {
   width: 100%;
-  margin-top: 0.3rem;
   border-collapse: collapse;
   font-size: 0.78rem;
+  margin-top: 0.3rem;
 }
 
 .smoke-detail-table th {
-  padding: 0.3rem 0.5rem 0.3rem 0;
   text-align: left;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9ca3af;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 0.7rem;
   font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .smoke-detail-table td {
   padding: 0.35rem 0.5rem 0.35rem 0;
-  vertical-align: top;
   border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
 }
 
 .smoke-required {
@@ -657,21 +653,21 @@
 .smoke-flag {
   display: inline-flex;
   align-items: center;
+  gap: 0.2rem;
   padding: 0.2rem 0.5rem;
   border-radius: 3px;
-  font-family: "SF Mono", "Fira Code", Consolas, monospace;
   font-size: 0.75rem;
-  gap: 0.2rem;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 .smoke-flag--on {
-  color: #166534;
   background: #dcfce7;
+  color: #166534;
 }
 
 .smoke-flag--off {
-  color: #991b1b;
   background: #fef2f2;
+  color: #991b1b;
 }
 
 /* ── Detail note ── */
@@ -679,18 +675,18 @@
 .smoke-detail-note {
   margin: 0.5rem 0 0;
   padding: 0.4rem 0.6rem;
-  color: #92400e;
-  border-radius: 4px;
   background: #fffbeb;
+  border-radius: 4px;
   font-size: 0.75rem;
+  color: #92400e;
 }
 
 /* ── Hint text ── */
 
 .smoke-hint {
-  margin-top: 0.25rem !important;
-  opacity: 0.65;
   font-size: 0.78rem;
+  opacity: 0.65;
+  margin-top: 0.25rem !important;
 }
 
 /* ── CLI reference ── */
@@ -698,16 +694,16 @@
 .smoke-cli-ref {
   margin-top: 2rem;
   padding: 1.25rem 1.5rem;
+  background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #f9fafb;
 }
 
 .smoke-cli-ref__title {
   margin: 0 0 0.75rem;
-  color: #374151;
   font-size: 0.85rem;
   font-weight: 700;
+  color: #374151;
 }
 
 .smoke-cli-ref__commands {
@@ -719,9 +715,9 @@
 .smoke-cli-cmd {
   display: flex;
   align-items: center;
-  color: #6b7280;
-  font-size: 0.8rem;
   gap: 0.75rem;
+  font-size: 0.8rem;
+  color: #6b7280;
 }
 
 .smoke-cli-cmd .smoke-code {
