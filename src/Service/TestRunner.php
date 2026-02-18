@@ -38,8 +38,6 @@ final class TestRunner {
    *   Optional remote URL to test against instead of the local DDEV site.
    * @param array<string, string>|null $remoteCredentials
    *   Optional remote auth credentials from Terminus.
-   * @param array<string, mixed> $options
-   *   Additional options: parallel, verbose, htmlPath.
    *
    * @return array<string, mixed>
    *   Parsed test results.
@@ -48,27 +46,24 @@ final class TestRunner {
     ?string $suite = NULL,
     ?string $targetUrl = NULL,
     ?array $remoteCredentials = NULL,
-    array $options = [],
   ): array {
-    // Check Node.js version before running tests.
-    $nodeVersionError = $this->checkNodeVersion();
-    if ($nodeVersionError !== NULL) {
-      return [
-        'error' => $nodeVersionError,
-        'exitCode' => 1,
-        'ranAt' => time(),
-        'suites' => [],
-        'passed' => 0,
-        'failed' => 0,
-        'skipped' => 0,
-        'total' => 0,
-      ];
+    $playwrightDir = $this->getPlaywrightDir();
+
+    // Require Node 20+ before running Playwright.
+    $nodeError = $this->checkNodeVersion($playwrightDir);
+    if ($nodeError !== NULL) {
+      $results = $this->parseResults('');
+      $results['error'] = $nodeError;
+      $results['exitCode'] = 1;
+      $results['ranAt'] = time();
+      $this->state->set('smoke.last_results', $results);
+      $this->state->set('smoke.last_run', $results['ranAt']);
+      return $results;
     }
 
     // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
-    $playwrightDir = $this->getPlaywrightDir();
     $resultsFile = $playwrightDir . '/results.json';
 
     // Remove stale results file.
@@ -87,19 +82,7 @@ final class TestRunner {
       $args[] = 'suites/' . $suiteFile . '.spec.ts';
     }
 
-    // Build environment variables for Playwright config.
-    $env = [];
-    if (!empty($options['parallel'])) {
-      $env['SMOKE_PARALLEL'] = '1';
-    }
-    if (!empty($options['verbose'])) {
-      $env['SMOKE_VERBOSE'] = '1';
-    }
-    if (!empty($options['htmlPath'])) {
-      $env['SMOKE_HTML_PATH'] = $options['htmlPath'];
-    }
-
-    $process = new Process($args, $playwrightDir, $env + $_ENV);
+    $process = new Process($args, $playwrightDir);
     $process->setTimeout(300);
 
     // Output enabled so launch failures show. Results from JSON file.
@@ -109,23 +92,9 @@ final class TestRunner {
     $resultsFileContent = file_exists($resultsFile)
       ? (file_get_contents($resultsFile) ?: '')
       : '';
-    $err = $process->getErrorOutput();
-    
     if ($process->getExitCode() !== 0 && $resultsFileContent === '') {
+      $err = $process->getErrorOutput();
       if ($err !== '') {
-        // Check if this is a browser launch failure we can recover from.
-        $isLaunchFailure = str_contains($err, 'browserType.launch')
-          || str_contains($err, 'Failed to launch')
-          || str_contains($err, 'Executable doesn\'t exist')
-          || str_contains($err, 'Host system is missing dependencies');
-
-        if ($isLaunchFailure && !($options['_retried'] ?? FALSE)) {
-          // Attempt auto-recovery: install browser deps and retry once.
-          $this->attemptBrowserRecovery($playwrightDir);
-          $options['_retried'] = TRUE;
-          return $this->run($suite, $targetUrl, $remoteCredentials, $options);
-        }
-
         $results = $this->parseResults('');
         $results['error'] = 'Playwright failed. ' . trim($err);
         $results['exitCode'] = $process->getExitCode();
@@ -144,29 +113,21 @@ final class TestRunner {
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
 
-    // Browser launch failure: check both stderr and test results.
+    // Browser launch failure: set results['error'] so run command shows hint.
+    $err = $process->getErrorOutput();
     $launchErrorFromStderr = $err !== ''
       && ($process->getExitCode() !== 0)
-      && (str_contains($err, 'browserType.launch')
-        || str_contains($err, 'Failed to launch')
-        || str_contains($err, 'Host system is missing dependencies'));
-    $launchFailureInTests = $this->hasBrowserLaunchFailureInResults($results);
-
-    if (($launchErrorFromStderr || $launchFailureInTests) && !($options['_retried'] ?? FALSE)) {
-      // Attempt auto-recovery and retry once.
-      $this->attemptBrowserRecovery($playwrightDir);
-      $options['_retried'] = TRUE;
-      return $this->run($suite, $targetUrl, $remoteCredentials, $options);
-    }
-
-    // Set error message for display if browser launch failed.
+      && (str_contains($err, 'browserType.launch') || str_contains($err, 'Failed to launch'));
     if ($launchErrorFromStderr) {
       $results['error'] = trim($err);
     }
-    elseif ($launchFailureInTests) {
-      $results['error'] = trim($err) !== ''
-        ? trim($err)
-        : 'Chromium could not be launched. Install browser and system deps.';
+    else {
+      $launchFailureInTests = $this->hasBrowserLaunchFailureInResults($results);
+      if ($launchFailureInTests) {
+        $results['error'] = trim($err) !== ''
+          ? trim($err)
+          : 'Chromium could not be launched. Install browser and system deps.';
+      }
     }
 
     if ($suite) {
@@ -234,81 +195,70 @@ final class TestRunner {
     $totalSkipped = 0;
     $totalDuration = 0;
 
-    // Playwright JSON: file-level suites contain nested named suites.
-    // Structure: { suites: [{ title: "file.spec.ts", suites: [{ title: "Name", specs: [...] }] }] }
-    foreach (($data['suites'] ?? []) as $fileSuite) {
-      // Process nested named suites (the actual test suites like "Core Pages").
-      foreach (($fileSuite['suites'] ?? []) as $pwSuite) {
-        $suiteId = $this->resolveSuiteId($pwSuite['title'] ?? '');
-        if (!$suiteId) {
-          $suiteId = $this->slugify($pwSuite['title'] ?? 'unknown');
-        }
+    // Playwright JSON format: { suites: [ { title, specs: [ ... ] } ] }.
+    foreach (($data['suites'] ?? []) as $pwSuite) {
+      $suiteId = $this->resolveSuiteId($pwSuite['title'] ?? '');
+      if (!$suiteId) {
+        $suiteId = $this->slugify($pwSuite['title'] ?? 'unknown');
+      }
 
-        $tests = [];
-        $suitePassed = 0;
-        $suiteFailed = 0;
-        $suiteSkipped = 0;
-        $suiteDuration = 0;
+      $tests = [];
+      $suitePassed = 0;
+      $suiteFailed = 0;
+      $suiteSkipped = 0;
+      $suiteDuration = 0;
 
-        foreach ($this->flattenSpecs($pwSuite) as $spec) {
-          $status = 'passed';
-          $duration = 0;
-          $errorMessage = '';
+      foreach ($this->flattenSpecs($pwSuite) as $spec) {
+        $status = 'passed';
+        $duration = 0;
+        $errorMessage = '';
 
-          foreach (($spec['tests'] ?? []) as $test) {
-            // Check test-level status first (for skipped tests with empty results).
-            $testStatus = $test['status'] ?? 'passed';
-            if ($testStatus === 'skipped') {
+        foreach (($spec['tests'] ?? []) as $test) {
+          foreach (($test['results'] ?? []) as $result) {
+            $duration += (int) ($result['duration'] ?? 0);
+            if (($result['status'] ?? '') === 'failed') {
+              $status = 'failed';
+              $errorMessage = $result['error']['message'] ?? '';
+            }
+            elseif (($result['status'] ?? '') === 'skipped') {
               $status = 'skipped';
             }
-            elseif ($testStatus === 'failed') {
-              $status = 'failed';
-            }
-
-            // Then check individual results for more details.
-            foreach (($test['results'] ?? []) as $result) {
-              $duration += (int) ($result['duration'] ?? 0);
-              if (($result['status'] ?? '') === 'failed') {
-                $status = 'failed';
-                $errorMessage = $result['error']['message'] ?? '';
-              }
-            }
           }
-
-          if ($status === 'passed') {
-            $suitePassed++;
-          }
-          elseif ($status === 'failed') {
-            $suiteFailed++;
-          }
-          else {
-            $suiteSkipped++;
-          }
-          $suiteDuration += $duration;
-
-          $tests[] = [
-            'title' => $spec['title'] ?? 'Unknown test',
-            'status' => $status,
-            'duration' => $duration,
-            'error' => $errorMessage,
-          ];
         }
 
-        $totalPassed += $suitePassed;
-        $totalFailed += $suiteFailed;
-        $totalSkipped += $suiteSkipped;
-        $totalDuration += $suiteDuration;
+        if ($status === 'passed') {
+          $suitePassed++;
+        }
+        elseif ($status === 'failed') {
+          $suiteFailed++;
+        }
+        else {
+          $suiteSkipped++;
+        }
+        $suiteDuration += $duration;
 
-        $suites[$suiteId] = [
-          'title' => $pwSuite['title'] ?? $suiteId,
-          'tests' => $tests,
-          'passed' => $suitePassed,
-          'failed' => $suiteFailed,
-          'skipped' => $suiteSkipped,
-          'duration' => $suiteDuration,
-          'status' => $suiteFailed > 0 ? 'failed' : 'passed',
+        $tests[] = [
+          'title' => $spec['title'] ?? 'Unknown test',
+          'status' => $status,
+          'duration' => $duration,
+          'error' => $errorMessage,
         ];
       }
+
+      $totalPassed += $suitePassed;
+      $totalFailed += $suiteFailed;
+      $totalSkipped += $suiteSkipped;
+      $totalDuration += $suiteDuration;
+
+      $suites[$suiteId] = [
+        'title' => $pwSuite['title'] ?? $suiteId,
+        'tests' => $tests,
+        'passed' => $suitePassed,
+        'failed' => $suiteFailed,
+        'skipped' => $suiteSkipped,
+        'duration' => $suiteDuration,
+        'status' => $suiteFailed > 0 ? 'failed' : 'passed',
+      ];
     }
 
     return [
@@ -422,86 +372,36 @@ final class TestRunner {
   }
 
   /**
+   * Checks that Node.js 20+ is available.
+   *
+   * @param string $playwrightDir
+   *   Playwright directory (used as process cwd).
+   *
+   * @return string|null
+   *   NULL if OK, or an error message to show the user.
+   */
+  private function checkNodeVersion(string $playwrightDir): ?string {
+    $process = new Process(['node', '--version'], $playwrightDir);
+    $process->setTimeout(10);
+    $process->run();
+    if (!$process->isSuccessful()) {
+      return 'Node.js is not installed. Smoke requires Node.js 20+ (e.g. nvm use 20).';
+    }
+    $output = trim($process->getOutput());
+    if (preg_match('/^v?(\d+)\./', $output, $matches)) {
+      $major = (int) $matches[1];
+      if ($major < 20) {
+        return "Node.js {$output} is too old. Use Node 20 or newer (e.g. nvm use 20).";
+      }
+    }
+    return NULL;
+  }
+
+  /**
    * Returns the Playwright directory path inside this module.
    */
   private function getPlaywrightDir(): string {
     return $this->configGenerator->getModulePath() . '/playwright';
-  }
-
-  /**
-   * Attempts to recover from browser launch failure by installing deps.
-   *
-   * @param string $playwrightDir
-   *   Path to the Playwright directory.
-   *
-   * @return bool
-   *   TRUE if recovery was attempted and may have succeeded.
-   */
-  private function attemptBrowserRecovery(string $playwrightDir): bool {
-    // Try installing Chromium browser first.
-    $installBrowser = new Process(
-      ['npx', 'playwright', 'install', 'chromium'],
-      $playwrightDir,
-    );
-    $installBrowser->setTimeout(180);
-    $installBrowser->run();
-
-    // Then try to install system dependencies.
-    // Use sudo with DEBIAN_FRONTEND=noninteractive to avoid prompts.
-    $installDeps = new Process(
-      ['sudo', '-n', 'env', 'DEBIAN_FRONTEND=noninteractive', 'npx', 'playwright', 'install-deps', 'chromium'],
-      $playwrightDir,
-    );
-    $installDeps->setTimeout(120);
-    $installDeps->run();
-
-    // If that failed, try direct apt-get as fallback.
-    if (!$installDeps->isSuccessful()) {
-      // Comprehensive list of Chromium dependencies.
-      $aptInstall = new Process(
-        ['sudo', '-n', 'apt-get', 'install', '-y',
-          'libnss3', 'libnspr4', 'libatk1.0-0', 'libatk-bridge2.0-0',
-          'libcups2', 'libdrm2', 'libxkbcommon0', 'libxcomposite1',
-          'libxdamage1', 'libxfixes3', 'libxrandr2', 'libgbm1', 'libasound2',
-          'libpangocairo-1.0-0', 'libpango-1.0-0', 'libcairo2',
-          'libatspi2.0-0', 'libgtk-3-0', 'libgdk-pixbuf2.0-0',
-          'libx11-xcb1', 'libxcb-dri3-0', 'libxcb1', 'libxshmfence1',
-          'libglib2.0-0', 'libnss3-tools',
-        ],
-        $playwrightDir,
-      );
-      $aptInstall->setTimeout(120);
-      $aptInstall->run();
-    }
-
-    // Return true to signal retry should be attempted.
-    return TRUE;
-  }
-
-  /**
-   * Checks if Node.js version is >= 18.
-   *
-   * @return string|null
-   *   Error message if Node.js is missing or too old, NULL if OK.
-   */
-  private function checkNodeVersion(): ?string {
-    $nodeCheck = new Process(['node', '--version']);
-    $nodeCheck->setTimeout(10);
-    $nodeCheck->run();
-
-    if (!$nodeCheck->isSuccessful()) {
-      return 'Node.js is not installed. Install Node.js 18+ to run Playwright tests.';
-    }
-
-    $nodeVersion = trim($nodeCheck->getOutput());
-    if (preg_match('/^v?(\d+)\./', $nodeVersion, $matches)) {
-      $majorVersion = (int) $matches[1];
-      if ($majorVersion < 18) {
-        return "Node.js $nodeVersion is too old. Playwright requires Node.js 18+. Upgrade at https://nodejs.org/";
-      }
-    }
-
-    return NULL;
   }
 
 }

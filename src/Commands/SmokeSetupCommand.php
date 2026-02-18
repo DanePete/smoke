@@ -107,7 +107,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('DDEV detected.');
     }
 
-    // Step 2: Check Node.js is available and version >= 18.
+    // Step 2: Check Node.js is available and version >= 20.
     if (!$quiet) {
       $this->step('Checking Node.js...');
     }
@@ -116,18 +116,18 @@ final class SmokeSetupCommand extends DrushCommands {
     $nodeCheck->run();
     if (!$nodeCheck->isSuccessful()) {
       if (!$quiet) {
-        $this->io()->error('Node.js is not installed. Install Node.js 18+ to continue.');
+        $this->io()->error('Node.js is not installed. Install Node.js 20+ to continue.');
       }
       return;
     }
     $nodeVersion = trim($nodeCheck->getOutput());
-    // Parse version like "v22.21.1" or "v18.0.0".
+    // Parse version like "v22.21.1" or "v20.0.0".
     if (preg_match('/^v?(\d+)\./', $nodeVersion, $matches)) {
       $majorVersion = (int) $matches[1];
-      if ($majorVersion < 18) {
+      if ($majorVersion < 20) {
         if (!$quiet) {
-          $this->io()->error("Node.js $nodeVersion is too old. Playwright requires Node.js 18 or higher.");
-          $this->io()->text('    Upgrade Node.js: <options=bold>https://nodejs.org/</>');
+          $this->io()->error("Node.js $nodeVersion is too old. Smoke requires Node.js 20 or higher.");
+          $this->io()->text('    Use Node 20: <options=bold>nvm use 20</> or https://nodejs.org/');
         }
         return;
       }

@@ -4,6 +4,12 @@ All notable changes to the Smoke module are documented in this file.
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-02-17
+
+### Changed
+
+- Require Node.js 20+: `drush smoke:setup` and test runs now check Node version and fail with a clear message (e.g. "nvm use 20") if Node is missing or older than 20. Playwright config throws the same error when loaded with old Node (IDE/direct npx).
+
 ## [1.4.2] - 2026-02-17
 
 ### Bug fixes
@@ -89,7 +95,8 @@ Initial stable release.
 - Remote testing support via `--target` flag.
 - Host setup script (`host-setup.sh`) for one-command install.
 
-[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.4.2...1.0.x
+[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.4.3...1.0.x
+[1.4.3]: https://git.drupalcode.org/project/smoke/-/compare/1.4.2...1.4.3
 [1.4.2]: https://git.drupalcode.org/project/smoke/-/compare/1.4.1...1.4.2
 [1.1.5]: https://git.drupalcode.org/project/smoke/-/compare/1.1.4...1.1.5
 [1.1.4]: https://git.drupalcode.org/project/smoke/-/compare/1.1.3...1.1.4
