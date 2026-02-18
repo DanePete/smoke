@@ -1,11 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * @file
  * Smoke — automated smoke testing for Drupal.
  */
+
+declare(strict_types=1);
 
 use Drupal\Core\Routing\RouteMatchInterface;
 

@@ -8,5 +8,6 @@ suites:
   sitemap: true
   content: true
   accessibility: true
+webform_id: smoke_test
 custom_urls: []
-timeout: 10000
+timeout: 30000

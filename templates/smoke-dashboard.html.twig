@@ -15,6 +15,143 @@
 
 <div class="smoke-dashboard">
 
+  {# ── Page description and overview ── #}
+  <div class="smoke-intro">
+    <div class="smoke-intro__content">
+      <h2 class="smoke-intro__title">{{ 'About Smoke Tests'|t }}</h2>
+      <p class="smoke-intro__lead">
+        {{ 'Smoke tests are fast, automated end-to-end checks that verify your Drupal site works after deployments, updates, or configuration changes. They catch PHP errors, broken pages, failed logins, and accessibility issues before users do.'|t }}
+      </p>
+
+      <h3 class="smoke-intro__subtitle">{{ 'How it works'|t }}</h3>
+      <ol class="smoke-intro__steps">
+        <li>
+          <strong>{{ 'Drupal detects your setup'|t }}</strong> — The module inspects installed modules (Webform, Commerce, Search, etc.) and builds a list of relevant test suites. Suites that don't apply (e.g. Commerce when it's not installed) are skipped.
+        </li>
+        <li>
+          <strong>{{ 'Playwright runs tests'|t }}</strong> — Tests run in a real Chromium browser via Playwright. Each suite lives in <code class="smoke-code">playwright/suites/*.spec.ts</code>. The Drupal module writes a config file (<code class="smoke-code">playwright/config.json</code>) so Playwright knows which pages, forms, and users to test.
+        </li>
+        <li>
+          <strong>{{ 'Results are stored and displayed here'|t }}</strong> — Playwright outputs JSON results. The module parses them and shows pass/fail, duration, and error messages. You can run tests from this page or via Drush: <code class="smoke-code">ddev drush smoke --run</code>.
+        </li>
+      </ol>
+
+      <h3 class="smoke-intro__subtitle">{{ 'Local vs remote'|t }}</h3>
+      <p>
+        {{ 'On local DDEV sites, all suites run including admin-only checks (status report, cron, content creation). For remote targets (e.g. staging), use'|t }}
+        <code class="smoke-code">--target=https://staging.example.com</code>
+        {{ 'with optional Terminus credentials. Admin suites are skipped on remote unless you configure Terminus auth.'|t }}
+      </p>
+    </div>
+
+    <details class="smoke-doc">
+      <summary class="smoke-doc__summary">{{ 'What each test suite does'|t }} ({{ suites|length }} {{ 'suites'|t }})</summary>
+      <div class="smoke-doc__body">
+
+        <div class="smoke-doc__suite">
+          <h4>Core Pages</h4>
+          <p>{{ 'Verifies critical pages return HTTP 200 with no PHP or JavaScript errors.'|t }}</p>
+          <ul>
+            <li>Homepage, login page, and any custom URLs from settings</li>
+            <li>No "Fatal error" or "unexpected error" in body</li>
+            <li>No JavaScript console errors on key pages</li>
+            <li>No broken images (naturalWidth === 0)</li>
+            <li>No mixed content (HTTP resources on HTTPS page)</li>
+            <li>Site title matches in <code>&lt;title&gt;</code></li>
+            <li>404 page returns 404 (not white screen); 403 returns access denied (not WSOD)</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Authentication</h4>
+          <p>{{ 'Tests the login flow and password reset.'|t }}</p>
+          <ul>
+            <li>Login page loads with username and password fields</li>
+            <li>Invalid credentials show error message</li>
+            <li><strong>smoke_bot</strong> can log in and redirect to user profile (requires smoke_bot user; skipped on remote without Terminus auth)</li>
+            <li>Password reset page loads with "Username or email" field</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Webform</h4>
+          <p>{{ 'Submits the smoke_test webform and confirms it works.'|t }}</p>
+          <ul>
+            <li>Requires Webform module. The module auto-creates a <code>smoke_test</code> form if it doesn't exist (Name, Email, Message fields)</li>
+            <li>Form page returns 200</li>
+            <li>Fills all fields, clicks Submit, verifies confirmation (submission/received/thank) or URL change</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Commerce</h4>
+          <p>{{ 'Checks Commerce product catalog, cart, and checkout accessibility.'|t }}</p>
+          <ul>
+            <li>Product catalog page returns 200 (tries /products, /shop, /catalog, /)</li>
+            <li>Cart endpoint exists and doesn't return 500 (when commerce_cart enabled)</li>
+            <li>Checkout endpoint exists and doesn't return 500 (when commerce_checkout enabled)</li>
+            <li>Store has published products (when detected)</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Search</h4>
+          <p>{{ 'Verifies the search page loads and has a search form.'|t }}</p>
+          <ul>
+            <li>Requires Search API or core Search module</li>
+            <li>Search page returns 200 (path auto-detected from Views or /search)</li>
+            <li>Search input/field is visible</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Health</h4>
+          <p>{{ 'Checks admin status, cron, assets, and error log.'|t }}</p>
+          <ul>
+            <li><strong>Admin status report</strong> has no fatal errors (requires smoke_bot)</li>
+            <li><strong>Cron</strong> has run recently (not "never run")</li>
+            <li><strong>CSS/JS assets</strong> load without 404/500; at least one stylesheet present</li>
+            <li><strong>dblog</strong> shows no PHP errors in recent log (when dblog enabled)</li>
+            <li>Login page returns 200 for anonymous (cache header logged)</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Sitemap</h4>
+          <p>{{ 'Verifies the XML sitemap exists and is valid.'|t }}</p>
+          <ul>
+            <li>Requires simple_sitemap or xmlsitemap module</li>
+            <li>/sitemap.xml returns 200 with Content-Type XML</li>
+            <li>Contains at least one <code>&lt;loc&gt;</code> or <code>&lt;sitemap&gt;</code> entry</li>
+            <li>No PHP errors in response</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Content</h4>
+          <p>{{ 'Proves the full content pipeline works: create, view, delete a Basic Page.'|t }}</p>
+          <ul>
+            <li>Requires smoke_bot and Basic Page content type</li>
+            <li>smoke_bot can access /node/add/page</li>
+            <li>Creates a test page with a unique title, verifies it renders, then deletes it (cleanup)</li>
+            <li>Skipped on remote without Terminus auth</li>
+          </ul>
+        </div>
+
+        <div class="smoke-doc__suite">
+          <h4>Accessibility</h4>
+          <p>{{ 'WCAG 2.1 AA axe-core scan on key pages.'|t }}</p>
+          <ul>
+            <li>Homepage: no critical or serious WCAG 2.1 AA violations (axe-core)</li>
+            <li>Login page: no critical or serious violations</li>
+            <li>Best-practice scan on homepage (informational only, does not fail)</li>
+          </ul>
+        </div>
+
+      </div>
+    </details>
+  </div>
+
   {# ── Setup banner ── #}
   {% if not is_setup %}
     <div class="smoke-banner smoke-banner--setup">
@@ -272,7 +409,7 @@
         <div class="smoke-card__footer">
           <div class="smoke-card__footer-left">
             {% if suite.status != 'skipped' and is_setup %}
-              <form method="post" action="{{ path('smoke.run_suite', { suite: id }) }}">
+              <form method="post" action="{{ path('smoke.run_suite', {suite: id}) }}">
                 <input type="hidden" name="token" value="{{ csrf_token }}" />
                 <button type="submit" class="smoke-btn smoke-btn--small">
                   {{ 'Run'|t }}
@@ -288,7 +425,14 @@
           {% if suite.links|length > 0 and suite.status != 'skipped' %}
             <div class="smoke-card__links">
               {% for link in suite.links %}
-                <a href="{{ link.url }}" class="smoke-link" target="_blank">{{ link.label }}</a>
+                {% if link.action is defined and link.action == 'sitemap_regen' %}
+                  <form method="post" action="{{ path('smoke.sitemap_regen') }}" class="smoke-link-form">
+                    <input type="hidden" name="token" value="{{ csrf_token }}" />
+                    <button type="submit" class="smoke-link smoke-link--action">{{ link.label }}</button>
+                  </form>
+                {% else %}
+                  <a href="{{ link.url }}" class="smoke-link" target="_blank">{{ link.label }}</a>
+                {% endif %}
               {% endfor %}
             </div>
           {% endif %}

@@ -29,6 +29,16 @@ smoke.run_suite:
   options:
     _admin_route: TRUE
 
+smoke.sitemap_regen:
+  path: '/admin/reports/smoke/sitemap-regen'
+  defaults:
+    _controller: '\Drupal\smoke\Controller\DashboardController::sitemapRegen'
+  requirements:
+    _permission: 'administer smoke tests'
+  methods: [POST]
+  options:
+    _admin_route: TRUE
+
 smoke.settings:
   path: '/admin/config/development/smoke'
   defaults:

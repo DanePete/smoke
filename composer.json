@@ -3,7 +3,7 @@
     "description": "Automated smoke testing for Drupal. Auto-detects installed modules, runs Playwright browser tests, and provides a dashboard and Drush CLI.",
     "type": "drupal-module",
     "license": "GPL-2.0-or-later",
-    "minimum-stability": "dev",
+    "minimum-stability": "beta",
     "require": {
         "drupal/core": "^10 || ^11"
     },

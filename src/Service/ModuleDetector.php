@@ -67,6 +67,7 @@ final class ModuleDetector {
    * Returns human-readable labels for each suite.
    *
    * @return array<string, string>
+   *   Map of suite id to label.
    */
   public static function suiteLabels(): array {
     return [
@@ -86,6 +87,7 @@ final class ModuleDetector {
    * Returns icon names for each suite (Drupal core icons).
    *
    * @return array<string, string>
+   *   Map of suite id to icon name.
    */
   public static function suiteIcons(): array {
     return [
@@ -134,23 +136,31 @@ final class ModuleDetector {
   /**
    * Detects webform entities and their fields.
    *
-   * Looks for a dedicated 'smoke_test' webform first. If one doesn't exist,
-   * it is created automatically so there's always a known form to test against.
+   * Uses webform_id from smoke.settings. If ID is 'smoke_test' and the form
+   * does not exist, it is auto-created. For any other ID, only existing
+   * webforms are used so tests can target agency/company forms.
    */
   private function detectWebform(): array {
     try {
+      $settings = $this->configFactory->get('smoke.settings');
+      $webformId = (string) ($settings->get('webform_id') ?? 'smoke_test');
+      if ($webformId === '') {
+        $webformId = 'smoke_test';
+      }
+
       $storage = $this->entityTypeManager->getStorage('webform');
 
-      // Ensure the smoke_test webform exists.
-      $this->ensureSmokeWebform($storage);
+      if ($webformId === 'smoke_test') {
+        $this->ensureSmokeWebform($storage);
+      }
 
       /** @var \Drupal\webform\WebformInterface|null $webform */
-      $webform = $storage->load('smoke_test');
+      $webform = $storage->load($webformId);
       if (!$webform || !$webform->isOpen()) {
         return [
           'detected' => FALSE,
           'label' => 'Webform',
-          'description' => 'Submits the smoke_test form and confirms it works.',
+          'description' => 'Submits the configured webform and confirms it works.',
         ];
       }
 
@@ -165,14 +175,15 @@ final class ModuleDetector {
         ];
       }
 
+      $title = $webform->label() ?? $webformId;
       return [
         'detected' => TRUE,
         'label' => 'Webform',
-        'description' => 'Submits the smoke_test form and confirms it works.',
+        'description' => 'Submits the configured webform and confirms it works.',
         'form' => [
-          'id' => 'smoke_test',
-          'title' => 'Smoke Test',
-          'path' => '/webform/smoke_test',
+          'id' => $webformId,
+          'title' => $title,
+          'path' => '/webform/' . $webformId,
           'fields' => $fields,
         ],
       ];
@@ -181,22 +192,76 @@ final class ModuleDetector {
       return [
         'detected' => FALSE,
         'label' => 'Webform',
-        'description' => 'Submits the smoke_test form and confirms it works.',
+        'description' => 'Submits the configured webform and confirms it works.',
       ];
     }
   }
 
   /**
-   * Creates the smoke_test webform if it doesn't already exist.
+   * Creates smoke_test webform if missing.
    *
-   * This gives the test suite a known, predictable form to run against
-   * regardless of what other webforms exist on the site.
+   * Only when webform_id is smoke_test.
    */
   private function ensureSmokeWebform($storage): void {
     if ($storage->load('smoke_test')) {
       return;
     }
 
+    $this->createWebformWithStandardElements($storage, 'smoke_test', 'Smoke Test');
+  }
+
+  /**
+   * Creates a webform with standard elements (Name, Email, Message) if missing.
+   *
+   * Used by smoke:setup when the customer chooses a webform ID. Id and title
+   * are normalized; the form is created open with a simple confirmation.
+   *
+   * @return bool
+   *   TRUE if the webform was created, FALSE if it already existed.
+   */
+  public function createWebformIfMissing(string $id, string $title = ''): bool {
+    if (!$this->moduleHandler->moduleExists('webform')) {
+      return FALSE;
+    }
+    $storage = $this->entityTypeManager->getStorage('webform');
+    if ($storage->load($id)) {
+      return FALSE;
+    }
+    if ($title === '') {
+      $title = ucfirst(str_replace('_', ' ', $id));
+    }
+    $this->createWebformWithStandardElements($storage, $id, $title);
+    return TRUE;
+  }
+
+  /**
+   * Deletes the legacy smoke_test webform if it exists.
+   *
+   * Called during setup when the customer configures a different webform ID
+   * so the old default is removed.
+   */
+  public function removeSmokeTestWebform(): void {
+    if (!$this->moduleHandler->moduleExists('webform')) {
+      return;
+    }
+    $storage = $this->entityTypeManager->getStorage('webform');
+    $webform = $storage->load('smoke_test');
+    if ($webform) {
+      $webform->delete();
+    }
+  }
+
+  /**
+   * Creates a webform entity with standard Name, Email, Message elements.
+   *
+   * @param object $storage
+   *   Webform entity storage.
+   * @param string $id
+   *   Webform machine name.
+   * @param string $title
+   *   Webform label.
+   */
+  private function createWebformWithStandardElements($storage, string $id, string $title): void {
     $elements = <<<YAML
 name:
   '#type': textfield
@@ -213,13 +278,13 @@ message:
 YAML;
 
     $webform = $storage->create([
-      'id' => 'smoke_test',
-      'title' => 'Smoke Test',
+      'id' => $id,
+      'title' => $title,
       'status' => 'open',
       'elements' => $elements,
       'settings' => [
         'confirmation_type' => 'page',
-        'confirmation_message' => 'Smoke test submission received.',
+        'confirmation_message' => 'Submission received.',
       ],
     ]);
     $webform->save();

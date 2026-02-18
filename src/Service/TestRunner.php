@@ -42,8 +42,12 @@ final class TestRunner {
    * @return array<string, mixed>
    *   Parsed test results.
    */
-  public function run(?string $suite = NULL, ?string $targetUrl = NULL, ?array $remoteCredentials = NULL): array {
-    // Write fresh config for Playwright (with optional remote URL and credentials).
+  public function run(
+    ?string $suite = NULL,
+    ?string $targetUrl = NULL,
+    ?array $remoteCredentials = NULL,
+  ): array {
+    // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
 
     $playwrightDir = $this->getPlaywrightDir();
@@ -54,15 +58,13 @@ final class TestRunner {
       @unlink($resultsFile);
     }
 
-    // Don't pass --reporter here; the playwright.config.ts already
-    // writes JSON to results.json. Passing it on CLI would override
-    // the config and send JSON to stdout, causing buffer deadlocks.
+    // Don't pass --reporter; config writes JSON. CLI would override.
     $args = [
       'npx', 'playwright', 'test',
     ];
 
     if ($suite) {
-      // Suite IDs use underscores (core_pages) but filenames use dashes (core-pages.spec.ts).
+      // Suite IDs use underscores (core_pages), filenames use dashes.
       $suiteFile = str_replace('_', '-', $suite);
       $args[] = 'suites/' . $suiteFile . '.spec.ts';
     }
@@ -70,18 +72,50 @@ final class TestRunner {
     $process = new Process($args, $playwrightDir);
     $process->setTimeout(300);
 
-    // Disable in-memory output buffering to prevent deadlocks on large output.
-    // We read results from the JSON file Playwright writes to disk instead.
-    $process->disableOutput();
-
-    // Playwright returns non-zero if tests fail, so we don't throw on failure.
+    // Output enabled so launch failures show. Results from JSON file.
     $process->run();
 
+    // If process failed and no results, surface stderr (e.g. launch message).
+    $resultsFileContent = file_exists($resultsFile)
+      ? (file_get_contents($resultsFile) ?: '')
+      : '';
+    if ($process->getExitCode() !== 0 && $resultsFileContent === '') {
+      $err = $process->getErrorOutput();
+      if ($err !== '') {
+        $results = $this->parseResults('');
+        $results['error'] = 'Playwright failed. ' . trim($err);
+        $results['exitCode'] = $process->getExitCode();
+        $results['ranAt'] = time();
+        $this->state->set('smoke.last_results', $results);
+        $this->state->set('smoke.last_run', $results['ranAt']);
+        return $results;
+      }
+    }
+
     // Read results from the file written by Playwright's JSON reporter.
-    $output = file_exists($resultsFile) ? (file_get_contents($resultsFile) ?: '') : '';
+    $output = file_exists($resultsFile)
+      ? (file_get_contents($resultsFile) ?: '')
+      : '';
     $results = $this->parseResults($output);
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
+
+    // Browser launch failure: set results['error'] so run command shows hint.
+    $err = $process->getErrorOutput();
+    $launchErrorFromStderr = $err !== ''
+      && ($process->getExitCode() !== 0)
+      && (str_contains($err, 'browserType.launch') || str_contains($err, 'Failed to launch'));
+    if ($launchErrorFromStderr) {
+      $results['error'] = trim($err);
+    }
+    else {
+      $launchFailureInTests = $this->hasBrowserLaunchFailureInResults($results);
+      if ($launchFailureInTests) {
+        $results['error'] = trim($err) !== ''
+          ? trim($err)
+          : 'Chromium could not be launched. Install browser and system deps.';
+      }
+    }
 
     if ($suite) {
       // Merge with existing results for other suites.
@@ -105,6 +139,7 @@ final class TestRunner {
    * Returns the last stored results.
    *
    * @return array<string, mixed>|null
+   *   The last test results, or NULL if none.
    */
   public function getLastResults(): ?array {
     return $this->state->get('smoke.last_results');
@@ -112,6 +147,9 @@ final class TestRunner {
 
   /**
    * Returns the timestamp of the last run.
+   *
+   * @return int|null
+   *   Unix timestamp of last run, or NULL.
    */
   public function getLastRunTime(): ?int {
     return $this->state->get('smoke.last_run');
@@ -144,7 +182,7 @@ final class TestRunner {
     $totalSkipped = 0;
     $totalDuration = 0;
 
-    // Playwright JSON format: { suites: [ { title, specs: [ ... ] } ] }
+    // Playwright JSON format: { suites: [ { title, specs: [ ... ] } ] }.
     foreach (($data['suites'] ?? []) as $pwSuite) {
       $suiteId = $this->resolveSuiteId($pwSuite['title'] ?? '');
       if (!$suiteId) {
@@ -220,6 +258,22 @@ final class TestRunner {
         'duration' => $totalDuration,
       ],
     ];
+  }
+
+  /**
+   * Returns TRUE if any failed test in results has a browserType.launch error.
+   */
+  private function hasBrowserLaunchFailureInResults(array $results): bool {
+    foreach ($results['suites'] ?? [] as $suite) {
+      foreach ($suite['tests'] ?? [] as $test) {
+        if (($test['status'] ?? '') === 'failed' && isset($test['error'])) {
+          if (str_contains((string) $test['error'], 'browserType.launch')) {
+            return TRUE;
+          }
+        }
+      }
+    }
+    return FALSE;
   }
 
   /**

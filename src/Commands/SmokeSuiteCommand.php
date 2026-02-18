@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
@@ -16,17 +17,32 @@ use Symfony\Component\Process\Process;
  */
 final class SmokeSuiteCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeSuiteCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('config.factory'),
     );
   }
 
@@ -36,6 +52,14 @@ final class SmokeSuiteCommand extends DrushCommands {
   #[CLI\Usage(name: 'drush smoke:suite webform', description: 'Run only the webform tests.')]
   #[CLI\Usage(name: 'drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io', description: 'Test a remote site.')]
   #[CLI\Option(name: 'target', description: 'Remote URL to test against.')]
+  /**
+   * Runs a single smoke test suite.
+   *
+   * @param string $suite
+   *   Suite id (e.g. webform, core_pages).
+   * @param array $options
+   *   Options including 'target' for remote URL.
+   */
   public function suite(string $suite, array $options = ['target' => '']): void {
     if (!$this->testRunner->isSetup()) {
       $projectRoot = DRUPAL_ROOT . '/..';
@@ -46,7 +70,7 @@ final class SmokeSuiteCommand extends DrushCommands {
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
-        $process = new \Symfony\Component\Process\Process(
+        $process = new Process(
           ['drush', 'smoke:setup'],
           $projectRoot,
         );
@@ -127,8 +151,9 @@ final class SmokeSuiteCommand extends DrushCommands {
     if ($baseUrl) {
       $this->io()->newLine();
       if ($suite === 'webform') {
-        $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/smoke_test");
-        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/smoke_test/results/submissions");
+        $webformId = (string) ($this->configFactory->get('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/{$webformId}");
+        $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
       elseif ($suite === 'auth') {
         $this->io()->text("  <fg=gray>Login page:</>      {$baseUrl}/user/login");
@@ -157,7 +182,7 @@ final class SmokeSuiteCommand extends DrushCommands {
         'auth' => 'smoke_bot login tests auto-skip (no test user on remote). Use terminus-test.sh to enable.',
         'health' => 'Admin checks auto-skip (no smoke_bot on remote). Use terminus-test.sh to enable.',
         'content' => 'Content creation auto-skips (no smoke_bot on remote). Use terminus-test.sh to enable.',
-        'webform' => 'Tries to load smoke_test form — skips on 404. Deploy config to enable.',
+        'webform' => 'Tries to load configured webform — skips on 404. Deploy config to enable.',
         default => '',
       };
       if ($skippedReason) {
@@ -177,6 +202,7 @@ final class SmokeSuiteCommand extends DrushCommands {
    * Reads remote auth credentials from environment variables.
    *
    * @return array<string, string>|null
+   *   Credentials array or NULL.
    */
   private function getRemoteCredentials(): ?array {
     $user = getenv('SMOKE_REMOTE_USER') ?: '';

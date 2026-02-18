@@ -1,11 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * @file
  * Install, update, and uninstall functions for the Smoke module.
  */
+
+declare(strict_types=1);
 
 use Drupal\user\Entity\Role;
 use Drupal\user\Entity\User;
@@ -115,6 +115,23 @@ function smoke_uninstall(): void {
   $role = Role::load('smoke_bot');
   if ($role) {
     $role->delete();
+  }
+
+  // Remove the smoke_test webform if it exists.
+  if (\Drupal::moduleHandler()->moduleExists('webform')) {
+    $webform = \Drupal::entityTypeManager()
+      ->getStorage('webform')
+      ->load('smoke_test');
+    if ($webform) {
+      $webform->delete();
+    }
+  }
+
+  // Remove generated Playwright config file.
+  $modulePath = \Drupal::service('extension.list.module')->getPath('smoke');
+  $configFile = DRUPAL_ROOT . '/' . $modulePath . '/playwright/.smoke-config.json';
+  if (file_exists($configFile)) {
+    @unlink($configFile);
   }
 
   // Clean up state.

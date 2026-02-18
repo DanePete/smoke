@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\State\StateInterface;
 use Drupal\smoke\Service\ConfigGenerator;
+use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
@@ -19,23 +24,60 @@ use Symfony\Component\Process\Process;
  */
 final class SmokeSetupCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeSetupCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ConfigGenerator $configGenerator
+   *   The config generator service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler.
+   * @param \Drupal\Core\State\StateInterface $state
+   *   The state service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ConfigGenerator $configGenerator,
+    private readonly ModuleDetector $moduleDetector,
+    private readonly ModuleHandlerInterface $moduleHandler,
+    private readonly StateInterface $state,
+    private readonly ConfigFactoryInterface $configFactory,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.config_generator'),
+      $container->get('smoke.module_detector'),
+      $container->get('module_handler'),
+      $container->get('state'),
+      $container->get('config.factory'),
+      $container->get('entity_type.manager'),
     );
   }
 
   #[CLI\Command(name: 'smoke:setup')]
   #[CLI\Help(description: 'Set up Playwright from scratch: DDEV addon, browsers, npm deps, test config.')]
   #[CLI\Option(name: 'silent', description: 'Suppress output (used by DDEV post-start hook).')]
+  /**
+   * Sets up Playwright: npm deps, Chromium, config, smoke_bot user.
+   *
+   * @param array $options
+   *   Options including 'silent' to suppress output.
+   */
   public function setup(array $options = ['silent' => FALSE]): void {
     $quiet = (bool) $options['silent'];
 
@@ -65,49 +107,24 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('DDEV detected.');
     }
 
-    // Step 2: Install DDEV Playwright addon if not present.
+    // Step 2: Check Node.js is available.
     if (!$quiet) {
-      $this->step('Checking for Playwright addon...');
+      $this->step('Checking Node.js...');
     }
-    $hasAddon = is_file($projectRoot . '/.ddev/config.playwright.yaml')
-      || is_file($projectRoot . '/.ddev/config.playwright.yml');
-
-    if ($hasAddon) {
+    $nodeCheck = new Process(['node', '--version'], $projectRoot);
+    $nodeCheck->setTimeout(10);
+    $nodeCheck->run();
+    if (!$nodeCheck->isSuccessful()) {
       if (!$quiet) {
-        $this->ok('ddev-playwright already installed.');
-      }
-    }
-    else {
-      if (!$quiet) {
-        $this->io()->newLine();
-        $this->io()->text('  <fg=yellow;options=bold>Playwright not installed yet.</>');
-        $this->io()->text('  Run this single command on your <options=bold>host machine</>:');
-        $this->io()->newLine();
-        $scriptPath = str_replace($projectRoot . '/', '', $modulePath . '/scripts/host-setup.sh');
-        $this->io()->text("    <options=bold>bash {$scriptPath}</>");
-        $this->io()->newLine();
-        $this->io()->text('  This installs the DDEV addon, browsers, and finishes setup automatically.');
-        $this->io()->newLine();
+        $this->io()->error('Node.js is not installed. Install Node.js 18+ to continue.');
       }
       return;
     }
-
-    // Step 3: Check browsers are installed.
     if (!$quiet) {
-      $this->step('Checking Playwright browsers...');
-    }
-    $versionCheck = new Process(['npx', 'playwright', '--version'], $playwrightDir);
-    $versionCheck->setTimeout(15);
-    $versionCheck->run();
-    if ($versionCheck->isSuccessful() && !$quiet) {
-      $version = trim($versionCheck->getOutput());
-      $this->ok("Playwright {$version}");
-    }
-    elseif (!$quiet) {
-      $this->warn('Playwright CLI not found. Installing npm deps first...');
+      $this->ok('Node.js ' . trim($nodeCheck->getOutput()));
     }
 
-    // Step 4: Install npm dependencies.
+    // Step 3: Install npm dependencies.
     if (!$quiet) {
       $this->step('Installing npm dependencies...');
     }
@@ -133,7 +150,60 @@ final class SmokeSetupCommand extends DrushCommands {
       return;
     }
 
-    // Step 5: Generate config.
+    // Step 4: Install Chromium browser + system deps (if missing).
+    if (!$quiet) {
+      $this->step('Checking Chromium browser...');
+    }
+    $browserInstalled = $this->isBrowserInstalled($playwrightDir);
+    if ($browserInstalled) {
+      if (!$quiet) {
+        $this->ok('Chromium already installed.');
+      }
+    }
+    else {
+      if (!$quiet) {
+        $this->io()->text('    Installing Chromium (one-time download, ~180 MiB)...');
+      }
+
+      // Install Chromium browser binary.
+      $installBrowser = new Process(
+        ['npx', 'playwright', 'install', 'chromium'],
+        $playwrightDir,
+      );
+      $installBrowser->setTimeout(300);
+      $installBrowser->run();
+      if (!$installBrowser->isSuccessful()) {
+        if (!$quiet) {
+          $this->io()->error('Browser install failed: ' . $installBrowser->getErrorOutput());
+        }
+        return;
+      }
+      if (!$quiet) {
+        $this->ok('Chromium browser installed.');
+      }
+    }
+
+    // Always ensure system dependencies are installed (idempotent).
+    // Required for browser launch; after "Chromium already installed" we
+    // used to skip this, so deps were missing after ddev restart.
+    if (!$quiet) {
+      $this->step('Ensuring system dependencies...');
+    }
+    if (!$this->installSystemDeps($playwrightDir, $quiet)) {
+      if (!$quiet) {
+        $this->warn('Could not install system deps automatically.');
+        $this->io()->text(
+          '    Run manually: <options=bold>ddev exec "sudo npx playwright install-deps chromium"</>'
+        );
+      }
+    }
+
+    // Step 5: Configure webform for smoke tests (interactive if Webform on).
+    if (!$quiet && $this->moduleHandler->moduleExists('webform')) {
+      $this->configureWebformId();
+    }
+
+    // Step 6: Generate config.
     if (!$quiet) {
       $this->step('Generating test config...');
     }
@@ -142,17 +212,17 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
-    // Step 6: Verify test user and ensure permissions.
+    // Step 7: Verify test user and ensure permissions.
     if (!$quiet) {
       $this->step('Verifying smoke_bot test user...');
     }
-    $password = \Drupal::state()->get('smoke.bot_password');
+    $password = $this->state->get('smoke.bot_password');
     if ($password) {
       if (!$quiet) {
         $this->ok('smoke_bot ready.');
       }
       // Ensure content permissions are granted (added in later versions).
-      $role = \Drupal\user\Entity\Role::load('smoke_bot');
+      $role = $this->entityTypeManager->getStorage('user_role')->load('smoke_bot');
       if ($role) {
         $contentPerms = [
           'create page content',
@@ -176,10 +246,36 @@ final class SmokeSetupCommand extends DrushCommands {
       }
     }
     elseif (!$quiet) {
-      $this->warn('smoke_bot not found. Reinstall the module: drush pmu smoke && drush en smoke');
+      $this->warn(
+        'smoke_bot not found. Reinstall: drush pmu smoke && drush en smoke'
+      );
     }
 
-    // Step 7: Sanity check — list tests.
+    // Step 8: DDEV post-start hook (config regens on start).
+    $hookFile = $projectRoot . '/.ddev/config.smoke.yaml';
+    if ($isDdev && is_dir($projectRoot . '/.ddev') && !is_file($hookFile)) {
+      $yaml = <<<'YAML'
+# Auto-generated by Smoke module (drush smoke:setup).
+# Regenerates Smoke test config on every ddev start/restart.
+hooks:
+  post-start:
+    - exec: drush smoke:setup --silent 2>/dev/null || true
+YAML;
+      file_put_contents($hookFile, $yaml);
+      if (!$quiet) {
+        $this->ok('DDEV post-start hook installed — config auto-regenerates on ddev start.');
+      }
+    }
+    elseif ($isDdev && is_file($hookFile) && !$quiet) {
+      $this->ok('DDEV hook already present.');
+    }
+
+    // Step 9: Offer to add Composer post-update/install scripts.
+    if (!$quiet) {
+      $this->configureComposerScripts($projectRoot);
+    }
+
+    // Step 10: Sanity check — list tests.
     if (!$quiet) {
       $this->step('Verifying test suites...');
       $check = new Process(['npx', 'playwright', 'test', '--list'], $playwrightDir);
@@ -209,16 +305,271 @@ final class SmokeSetupCommand extends DrushCommands {
     }
   }
 
+  /**
+   * Checks if Chromium is installed in the Playwright cache.
+   */
+  private function isBrowserInstalled(string $playwrightDir): bool {
+    // Quick check: try to launch a browser validation.
+    $check = new Process(
+      ['npx', 'playwright', 'install', '--dry-run', 'chromium'],
+      $playwrightDir,
+    );
+    $check->setTimeout(15);
+    $check->run();
+    $output = $check->getOutput() . $check->getErrorOutput();
+
+    // If dry-run says "browser is already installed" or exits 0 with no
+    // download needed, the browser is present. Fall back to checking the
+    // cache directory directly.
+    if ($check->isSuccessful() && str_contains($output, 'already installed')) {
+      return TRUE;
+    }
+
+    // Direct cache check: look for chromium-* in the Playwright cache.
+    $cacheDir = getenv('PLAYWRIGHT_BROWSERS_PATH')
+      ?: (getenv('HOME') . '/.cache/ms-playwright');
+    if (is_dir($cacheDir)) {
+      $entries = @scandir($cacheDir) ?: [];
+      foreach ($entries as $entry) {
+        if (str_starts_with($entry, 'chromium-') && is_dir($cacheDir . '/' . $entry)) {
+          return TRUE;
+        }
+      }
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Outputs a step message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function step(string $message): void {
     $this->io()->text("  <fg=blue>▸</> {$message}");
   }
 
+  /**
+   * Outputs an OK message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function ok(string $message): void {
     $this->io()->text("    <fg=green>✓</> {$message}");
   }
 
+  /**
+   * Outputs a warning message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function warn(string $message): void {
     $this->io()->text("    <fg=yellow>⚠</> {$message}");
+  }
+
+  /**
+   * Asks for webform machine name, creates it if missing, removes smoke_test.
+   */
+  private function configureWebformId(): void {
+    $this->step('Configuring webform for smoke tests...');
+
+    $config = $this->configFactory->getEditable('smoke.settings');
+    $current = (string) ($config->get('webform_id') ?? 'smoke_test');
+
+    $answer = $this->io()->ask(
+      '  Webform machine name for smoke tests (e.g. contact_us, smoke_test)',
+      $current,
+    );
+    $raw = is_string($answer) ? trim($answer) : $current;
+    $id = $raw !== ''
+      ? strtolower((string) preg_replace('/[^a-z0-9_]/', '_', $raw))
+      : $current;
+    if ($id === '') {
+      $id = 'smoke_test';
+    }
+
+    $created = $this->moduleDetector->createWebformIfMissing($id);
+    if ($created) {
+      $this->ok("Webform <options=bold>{$id}</> created (Name, Email, Message).");
+    }
+    else {
+      $storage = $this->entityTypeManager->getStorage('webform');
+      if ($storage->load($id)) {
+        $this->ok("Webform <options=bold>{$id}</> already exists.");
+      }
+      else {
+        $this->warn("Webform <options=bold>{$id}</> not found and could not be created.");
+      }
+    }
+
+    if ($id !== 'smoke_test') {
+      $this->moduleDetector->removeSmokeTestWebform();
+      $this->ok('Legacy smoke_test webform removed.');
+    }
+
+    $config->set('webform_id', $id)->save();
+    $this->ok("Smoke will use webform: <options=bold>{$id}</>.");
+  }
+
+  /**
+   * Offers to add Composer post-update/install scripts to the project root.
+   *
+   * Appends drush cr + drush smoke --run so tests run automatically after
+   * composer install or composer update. Skips if already present.
+   */
+  private function configureComposerScripts(string $projectRoot): void {
+    $composerFile = $projectRoot . '/composer.json';
+    if (!is_file($composerFile)) {
+      return;
+    }
+
+    $json = file_get_contents($composerFile);
+    if ($json === FALSE) {
+      return;
+    }
+
+    $data = json_decode($json, TRUE);
+    if (!is_array($data)) {
+      return;
+    }
+
+    $smokeCmd = './vendor/bin/drush smoke --run';
+    $crCmd = './vendor/bin/drush cr';
+
+    // Check if smoke is already wired up in either hook.
+    $postUpdate = $data['scripts']['post-update-cmd'] ?? [];
+    $postInstall = $data['scripts']['post-install-cmd'] ?? [];
+
+    if (is_array($postUpdate) && in_array($smokeCmd, $postUpdate, TRUE)) {
+      $this->ok('Composer post-update-cmd already includes smoke tests.');
+      return;
+    }
+
+    $this->step('Composer scripts...');
+    $answer = $this->io()->confirm(
+      '  Add smoke tests to composer post-update-cmd and post-install-cmd? (tests must pass after composer install/update)',
+      FALSE,
+    );
+
+    if (!$answer) {
+      $this->ok('Skipped — add manually if needed (see README).');
+      return;
+    }
+
+    // Ensure scripts key exists.
+    if (!isset($data['scripts'])) {
+      $data['scripts'] = [];
+    }
+
+    // Append to post-update-cmd.
+    if (!is_array($postUpdate)) {
+      $postUpdate = $postUpdate ? [$postUpdate] : [];
+    }
+    if (!in_array($crCmd, $postUpdate, TRUE)) {
+      $postUpdate[] = $crCmd;
+    }
+    if (!in_array($smokeCmd, $postUpdate, TRUE)) {
+      $postUpdate[] = $smokeCmd;
+    }
+    $data['scripts']['post-update-cmd'] = $postUpdate;
+
+    // Append to post-install-cmd.
+    if (!is_array($postInstall)) {
+      $postInstall = $postInstall ? [$postInstall] : [];
+    }
+    if (!in_array($crCmd, $postInstall, TRUE)) {
+      $postInstall[] = $crCmd;
+    }
+    if (!in_array($smokeCmd, $postInstall, TRUE)) {
+      $postInstall[] = $smokeCmd;
+    }
+    $data['scripts']['post-install-cmd'] = $postInstall;
+
+    $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+    file_put_contents($composerFile, $encoded);
+
+    $this->ok('Composer scripts added — smoke tests will run after install/update.');
+  }
+
+  /**
+   * Installs Chromium system dependencies with fallback strategies.
+   *
+   * First tries `npx playwright install-deps chromium`. If that fails (common
+   * when DDEV's apt repo keys are expired), falls back to installing the
+   * required packages directly via apt-get.
+   *
+   * @return bool
+   *   TRUE if dependencies were installed successfully.
+   */
+  private function installSystemDeps(string $playwrightDir, bool $quiet): bool {
+    // Strategy 1: Official Playwright install-deps command.
+    $installDeps = new Process(
+      ['sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'npx', 'playwright', 'install-deps', 'chromium'],
+      $playwrightDir,
+    );
+    $installDeps->setTimeout(120);
+    $installDeps->run();
+    if ($installDeps->isSuccessful()) {
+      if (!$quiet) {
+        $this->ok('System dependencies installed.');
+      }
+      return TRUE;
+    }
+
+    // Strategy 2: Direct apt-get install of known Chromium dependencies.
+    // This bypasses apt-get update (which fails on expired repo keys).
+    if (!$quiet) {
+      $this->io()->text('    <fg=yellow>Playwright install-deps failed, trying direct apt install...</>');
+    }
+
+    $packages = [
+      'libnss3', 'libnspr4', 'libatk1.0-0', 'libatk-bridge2.0-0',
+      'libcups2', 'libdrm2', 'libxkbcommon0', 'libxcomposite1',
+      'libxdamage1', 'libxrandr2', 'libgbm1', 'libpango-1.0-0',
+      'libcairo2', 'libasound2', 'libatspi2.0-0', 'libxshmfence1',
+    ];
+
+    $directInstall = new Process(
+      array_merge(
+        ['sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', '--no-install-recommends'],
+        $packages,
+      ),
+      $playwrightDir,
+    );
+    $directInstall->setTimeout(120);
+    $directInstall->run();
+    if ($directInstall->isSuccessful()) {
+      if (!$quiet) {
+        $this->ok('System dependencies installed (direct apt-get).');
+      }
+      return TRUE;
+    }
+
+    // Strategy 3: Fix expired keys, update, then try again.
+    if (!$quiet) {
+      $this->io()->text('    <fg=yellow>Direct install failed, refreshing apt keys...</>');
+    }
+
+    $aptCmd = 'apt-get update --allow-insecure-repositories 2>/dev/null; '
+      . 'apt-get install -y --no-install-recommends --allow-unauthenticated '
+      . implode(' ', $packages);
+    $fixKeys = new Process(
+      ['sudo', 'bash', '-c', $aptCmd],
+      $playwrightDir,
+    );
+    $fixKeys->setTimeout(120);
+    $fixKeys->run();
+    if ($fixKeys->isSuccessful()) {
+      if (!$quiet) {
+        $this->ok('System dependencies installed (with key workaround).');
+      }
+      return TRUE;
+    }
+
+    return FALSE;
   }
 
 }

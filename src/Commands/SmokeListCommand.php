@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
@@ -15,26 +16,44 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class SmokeListCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeListCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('config.factory'),
     );
   }
 
   #[CLI\Command(name: 'smoke:list', aliases: ['smoke:ls'])]
   #[CLI\Help(description: 'List all detected smoke test suites.')]
+  /**
+   * Lists detected test suites and their status.
+   */
   public function list(): void {
     $detected = $this->moduleDetector->detect();
     $labels = ModuleDetector::suiteLabels();
-    $settings = \Drupal::config('smoke.settings');
+    $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $lastResults = $this->testRunner->getLastResults();
 

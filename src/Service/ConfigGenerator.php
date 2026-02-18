@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -18,6 +19,7 @@ final class ConfigGenerator {
     private readonly StateInterface $state,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly RequestStack $requestStack,
+    private readonly ModuleExtensionList $moduleExtensionList,
   ) {}
 
   /**
@@ -31,6 +33,7 @@ final class ConfigGenerator {
    *   When provided (via Terminus), auth tests run on the remote target.
    *
    * @return array<string, mixed>
+   *   Config array for Playwright.
    */
   public function generate(?string $targetUrl = NULL, ?array $remoteCredentials = NULL): array {
     $settings = $this->configFactory->get('smoke.settings');
@@ -49,7 +52,7 @@ final class ConfigGenerator {
     $siteConfig = $this->configFactory->get('system.site');
     $siteTitle = (string) $siteConfig->get('name');
 
-    // Build suites config — only include suites that are both detected and enabled.
+    // Build suites config: only include detected and enabled suites.
     $suites = [];
     foreach ($detected as $id => $suite) {
       $enabled = $enabledSuites[$id] ?? TRUE;
@@ -92,6 +95,8 @@ final class ConfigGenerator {
    *
    * @param string|null $targetUrl
    *   Optional remote URL override passed through to generate().
+   * @param array<string, string>|null $remoteCredentials
+   *   Optional remote auth credentials passed through to generate().
    *
    * @return string
    *   Path to the written config file.
@@ -111,7 +116,7 @@ final class ConfigGenerator {
    * Returns the absolute path to this module.
    */
   public function getModulePath(): string {
-    return DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke');
+    return DRUPAL_ROOT . '/' . $this->moduleExtensionList->getPath('smoke');
   }
 
   /**
