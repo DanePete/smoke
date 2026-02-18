@@ -22,3 +22,18 @@ services:
       - '@state'
       - '@module_handler'
       - '@file_system'
+
+  smoke.junit_reporter:
+    class: Drupal\smoke\Service\JunitReporter
+
+  smoke.error_helper:
+    class: Drupal\smoke\Service\ErrorHelper
+
+  smoke.suite_plugin_manager:
+    class: Drupal\smoke\Plugin\SuitePluginManager
+    parent: default_plugin_manager
+
+  smoke.yaml_suite_discovery:
+    class: Drupal\smoke\Discovery\YamlSuiteDiscovery
+    arguments:
+      - '@module_handler'

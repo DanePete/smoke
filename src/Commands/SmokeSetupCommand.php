@@ -295,7 +295,9 @@ YAML;
     if (!$quiet) {
       $this->io()->newLine();
       $this->io()->text('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      $this->io()->text('  <fg=green;options=bold>Setup complete.</>');
+      $this->io()->text('  <fg=green;options=bold>Setup complete.</>');      
+      // One-time agency tip: mention global installation on first setup.
+      $this->showAgencyTip($playwrightDir);
       $this->io()->newLine();
       $this->io()->text('  Commands:');
       $this->io()->text('    <options=bold>drush smoke</>               Run all tests');
@@ -303,6 +305,38 @@ YAML;
       $this->io()->text('    <options=bold>drush smoke:suite webform</>  Run one suite');
       $this->io()->newLine();
     }
+  }
+
+  /**
+   * Shows a one-time tip about global Playwright installation for agencies.
+   *
+   * @param string $playwrightDir
+   *   Path to the Playwright directory.
+   */
+  private function showAgencyTip(string $playwrightDir): void {
+    // Only show once per project.
+    $markerFile = DRUPAL_ROOT . '/../.ddev/.smoke-agency-tip-shown';
+    if (is_file($markerFile)) {
+      return;
+    }
+
+    // Check if using global Playwright (environment variable set).
+    $globalPath = getenv('PLAYWRIGHT_BROWSERS_PATH');
+    if ($globalPath && is_dir($globalPath)) {
+      // Already using global — no tip needed.
+      return;
+    }
+
+    // Show the tip.
+    $this->io()->newLine();
+    $this->io()->text('  <fg=cyan;options=bold>Tip: Managing multiple Drupal sites?</>');    
+    $this->io()->text('  <fg=gray>Save ~180 MiB per project by installing Playwright globally:</>');
+    $modulePath = $this->configGenerator->getModulePath();
+    $this->io()->text("  <options=bold>bash {$modulePath}/scripts/global-setup.sh</>");
+    $this->io()->text('  <fg=gray>Enables VS Code/Cursor extension support across all sites.</>');
+
+    // Mark as shown.
+    @file_put_contents($markerFile, date('c'));
   }
 
   /**

@@ -38,6 +38,8 @@ final class TestRunner {
    *   Optional remote URL to test against instead of the local DDEV site.
    * @param array<string, string>|null $remoteCredentials
    *   Optional remote auth credentials from Terminus.
+   * @param array<string, mixed> $options
+   *   Additional options: parallel, verbose, htmlPath.
    *
    * @return array<string, mixed>
    *   Parsed test results.
@@ -46,6 +48,7 @@ final class TestRunner {
     ?string $suite = NULL,
     ?string $targetUrl = NULL,
     ?array $remoteCredentials = NULL,
+    array $options = [],
   ): array {
     // Write fresh config for Playwright (optional remote URL and credentials).
     $this->configGenerator->writeConfig($targetUrl, $remoteCredentials);
@@ -69,7 +72,19 @@ final class TestRunner {
       $args[] = 'suites/' . $suiteFile . '.spec.ts';
     }
 
-    $process = new Process($args, $playwrightDir);
+    // Build environment variables for Playwright config.
+    $env = [];
+    if (!empty($options['parallel'])) {
+      $env['SMOKE_PARALLEL'] = '1';
+    }
+    if (!empty($options['verbose'])) {
+      $env['SMOKE_VERBOSE'] = '1';
+    }
+    if (!empty($options['htmlPath'])) {
+      $env['SMOKE_HTML_PATH'] = $options['htmlPath'];
+    }
+
+    $process = new Process($args, $playwrightDir, $env + $_ENV);
     $process->setTimeout(300);
 
     // Output enabled so launch failures show. Results from JSON file.

@@ -1,0 +1,31 @@
+# Shared Playwright Browser Cache for DDEV
+#
+# Place this file at ~/.ddev/global_config.yaml or include these settings
+# in each project's .ddev/config.yaml to share Playwright browsers across
+# all DDEV projects.
+#
+# This creates a persistent Docker volume that stores the Chromium browser,
+# so it only downloads once and is reused by all projects.
+#
+# Usage:
+#   1. Copy to ~/.ddev/global_config.yaml (affects all projects)
+#   2. Run: ddev restart
+#   3. First project to run smoke:setup downloads Chromium
+#   4. All other projects reuse the cached browser
+#
+
+# Mount a shared volume for Playwright browser cache
+web_extra_daemons: []
+
+hooks:
+  post-start:
+    - exec: mkdir -p /home/.cache/ms-playwright
+
+web_environment:
+  # Tell Playwright where to find/store browsers
+  - PLAYWRIGHT_BROWSERS_PATH=/home/.cache/ms-playwright
+
+# Create a named volume for the browser cache
+# This persists across all projects
+additional_docker_compose_files:
+  - docker-compose.playwright-cache.yaml

@@ -6,6 +6,8 @@ services:
       - '@smoke.module_detector'
       - '@config.factory'
       - '@state'
+      - '@smoke.junit_reporter'
+      - '@module_handler'
     tags:
       - { name: drush.command }
 
@@ -53,5 +55,12 @@ services:
     class: Drupal\smoke\Commands\SmokeUnitCommand
     arguments:
       - '@extension.list.module'
+    tags:
+      - { name: drush.command }
+
+  smoke.command.init:
+    class: Drupal\smoke\Commands\SmokeInitCommand
+    arguments:
+      - '@module_handler'
     tags:
       - { name: drush.command }

@@ -1,0 +1,144 @@
+/**
+ * Example Custom Smoke Test Suite
+ *
+ * Copy this file to playwright-smoke/suites/ or your custom module's
+ * playwright/suites/ directory and modify it for your needs.
+ *
+ * This template demonstrates common patterns for custom smoke tests.
+ *
+ * To register with Drupal, create a smoke.suites.yml file:
+ * @code
+ * example_custom:
+ *   label: 'Custom Tests'
+ *   description: 'Agency-specific smoke tests.'
+ *   icon: star
+ *   weight: 100
+ * @endcode
+ */
+
+import { test, expect } from '@playwright/test';
+import { readConfig, login, assertHealthyPage } from '../../web/modules/contrib/smoke/playwright/src/helpers';
+
+// Read Drupal-generated config (contains baseUrl, detected suites, etc.)
+const config = readConfig();
+
+test.describe('Custom Tests', () => {
+
+  /**
+   * Example: Test a specific page loads correctly.
+   */
+  test('custom page loads', async ({ page }) => {
+    // Navigate to your custom page.
+    await page.goto('/your-custom-page');
+
+    // Check for expected content.
+    await expect(page).toHaveTitle(/Expected Title/);
+    await expect(page.locator('h1')).toContainText('Expected Heading');
+
+    // Verify no PHP errors in response.
+    const content = await page.content();
+    expect(content).not.toContain('Fatal error');
+    expect(content).not.toContain('Warning:');
+  });
+
+  /**
+   * Example: Test authenticated functionality.
+   */
+  test('admin feature works', async ({ page }) => {
+    // Login using the smoke_bot user.
+    await login(page, config);
+
+    // Navigate to admin area.
+    await page.goto('/admin/your-custom-admin-page');
+
+    // Perform authenticated actions.
+    await page.getByRole('button', { name: 'Save' }).click();
+
+    // Verify success.
+    await expect(page.locator('.messages--status')).toContainText('saved');
+  });
+
+  /**
+   * Example: Test API endpoint.
+   */
+  test('API returns valid response', async ({ request }) => {
+    const response = await request.get('/api/your-endpoint');
+
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()['content-type']).toContain('application/json');
+
+    const data = await response.json();
+    expect(data).toHaveProperty('results');
+    expect(Array.isArray(data.results)).toBeTruthy();
+  });
+
+  /**
+   * Example: Test form submission.
+   */
+  test('contact form submits', async ({ page }) => {
+    await page.goto('/contact');
+
+    // Fill form fields.
+    await page.getByLabel('Name').fill('Test User');
+    await page.getByLabel('Email').fill('test@example.com');
+    await page.getByLabel('Message').fill('This is a test message from smoke tests.');
+
+    // Submit.
+    await page.getByRole('button', { name: 'Submit' }).click();
+
+    // Verify confirmation.
+    await expect(page.locator('.messages--status')).toContainText('received');
+  });
+
+  /**
+   * Example: Visual regression test.
+   */
+  test('homepage looks correct', async ({ page }) => {
+    await page.goto('/');
+
+    // Take a screenshot for visual comparison.
+    // First run creates baseline, subsequent runs compare.
+    await expect(page).toHaveScreenshot('homepage.png', {
+      maxDiffPixelRatio: 0.1, // Allow 10% diff for dynamic content.
+      fullPage: true,
+    });
+  });
+
+  /**
+   * Example: Performance check.
+   */
+  test('page loads within budget', async ({ page }) => {
+    const startTime = Date.now();
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const loadTime = Date.now() - startTime;
+
+    // Fail if page takes longer than 3 seconds.
+    expect(loadTime).toBeLessThan(3000);
+  });
+
+  /**
+   * Example: Check specific third-party integration.
+   */
+  test('analytics script loads', async ({ page }) => {
+    await page.goto('/');
+
+    // Check for Google Analytics or similar.
+    const scripts = await page.locator('script').all();
+    const scriptSrcs = await Promise.all(
+      scripts.map(s => s.getAttribute('src'))
+    );
+
+    const hasAnalytics = scriptSrcs.some(
+      src => src && (
+        src.includes('googletagmanager.com') ||
+        src.includes('google-analytics.com')
+      )
+    );
+
+    expect(hasAnalytics).toBeTruthy();
+  });
+
+});

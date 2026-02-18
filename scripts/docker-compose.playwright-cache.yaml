@@ -1,0 +1,22 @@
+# Docker Compose override for shared Playwright browser cache
+#
+# Place this file at .ddev/docker-compose.playwright-cache.yaml in each project
+# OR at ~/.ddev/global_config.d/docker-compose.playwright-cache.yaml for all projects
+#
+# Creates a named Docker volume that persists Playwright browsers across projects.
+#
+
+services:
+  web:
+    volumes:
+      # Named volume for shared Playwright browser cache
+      - playwright-browsers:/home/.cache/ms-playwright
+    environment:
+      # Tell Playwright where to find/store browsers
+      PLAYWRIGHT_BROWSERS_PATH: /home/.cache/ms-playwright
+
+# Named volume persists across ddev restart and is shared if using global config
+volumes:
+  playwright-browsers:
+    name: ddev-playwright-browsers
+    external: false

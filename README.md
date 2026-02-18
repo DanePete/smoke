@@ -23,6 +23,7 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 - [Custom URLs](#custom-urls)
 - [Adding Custom Tests](#adding-custom-tests)
 - [After Module Updates](#after-module-updates)
+- [Agency Setup: Global Playwright Installation](#agency-setup-global-playwright-installation)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
 - [Uninstall & Cleanup](#uninstall--cleanup)
@@ -535,6 +536,102 @@ Now `git push` will run the full smoke suite first. If any test fails, the push 
 
 > **Tip:** To share this hook with your team, store it in a tracked directory (e.g. `scripts/hooks/pre-push`) and have each developer symlink it:
 > `ln -sf ../../scripts/hooks/pre-push .git/hooks/pre-push`
+
+---
+
+## Agency Setup: Global Playwright Installation
+
+For agencies managing many Drupal sites, downloading Chromium (~180 MiB) for every project is wasteful. Two approaches exist for sharing a single browser installation across projects.
+
+### Option 1: Host-side Global Install (Recommended)
+
+Install Playwright once on your Mac, outside of DDEV. This is the **recommended approach** because:
+- The VS Code / Cursor Playwright extension discovers the installation automatically
+- Browser updates happen once, not per-project
+- Tests can run from your IDE or from `ddev` commands
+
+#### Setup
+
+Run the global setup script (included in the module):
+
+```bash
+bash web/modules/contrib/smoke/scripts/global-setup.sh
+```
+
+This script:
+1. Creates `~/.playwright-smoke/` with a standalone Node/Playwright installation
+2. Installs only Chromium (not Firefox or WebKit) — saves ~300 MiB
+3. Adds the installation to your shell PATH (`~/.zshrc` or `~/.bashrc`)
+4. Sets `PLAYWRIGHT_BROWSERS_PATH` so all projects share the same browser
+
+After running the script, restart your terminal or run `source ~/.zshrc`.
+
+#### Verify
+
+```bash
+playwright --version
+# Should output: Version 1.x.x
+
+ls ~/.playwright-smoke/browsers
+# Should show chromium-* directory
+```
+
+#### VS Code / Cursor Integration
+
+Once Playwright is installed globally:
+1. Open your Drupal project in VS Code or Cursor
+2. Run `ddev drush smoke:init` to create a project-level `playwright.config.ts`
+3. Install the **Playwright Test for VS Code** extension
+4. Click the beaker icon → the extension finds your Smoke suites automatically
+
+Tests run directly from your IDE using the global browser — no per-project setup needed.
+
+### Option 2: DDEV Shared Docker Volume
+
+If you prefer keeping everything inside Docker, you can share the browser cache across all DDEV projects using a named volume.
+
+#### Setup
+
+Copy the example config to your DDEV global config directory:
+
+```bash
+mkdir -p ~/.ddev/global_config.d
+cp web/modules/contrib/smoke/scripts/docker-compose.playwright-cache.yaml \
+   ~/.ddev/global_config.d/docker-compose.playwright-cache.yaml
+ddev restart
+```
+
+Now all DDEV projects share the same `ddev-playwright-browsers` Docker volume.
+
+#### First-time browser install
+
+After adding the global config, install browsers once from any project:
+
+```bash
+ddev exec "npx playwright install chromium"
+```
+
+The browser is stored in the shared volume. Future projects skip the download.
+
+#### Per-project setup (still required)
+
+Each project still needs npm dependencies:
+
+```bash
+ddev exec "cd web/modules/contrib/smoke/playwright && npm install"
+```
+
+But the ~180 MiB browser download only happens once.
+
+### Comparison
+
+| Approach | Browser Disk | IDE Support | Runs In |
+|----------|-------------|-------------|---------|
+| Host-side global | ~180 MiB total | ✅ Full | Mac + DDEV |
+| DDEV shared volume | ~180 MiB total | ❌ Limited | DDEV only |
+| Per-project (default) | ~180 MiB × projects | ✅ Full | DDEV only |
+
+For most agencies, **host-side global** is the best choice: one install, full IDE support, runs anywhere.
 
 ---
 
