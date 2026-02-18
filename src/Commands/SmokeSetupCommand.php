@@ -231,7 +231,7 @@ final class SmokeSetupCommand extends DrushCommands {
       $this->ok('Config written.');
     }
 
-    // Step 6b: Copy Playwright suites + src to project root (VS Code / root config).
+    // Step 6b: Copy Playwright suites + src to project root.
     $copied = $this->copyPlaywrightToProject($projectRoot, $playwrightDir, $quiet);
     if ($copied > 0 && !$quiet) {
       $this->ok('Playwright suites + config copied to project root (for VS Code).');
@@ -411,7 +411,7 @@ BASH;
       }
     }
 
-    // Step 11b: Run global-setup in the container (script skips if already installed).
+    // Step 11b: Run global-setup in the container.
     $globalSetupScript = $modulePath . '/scripts/global-setup.sh';
     if (is_file($globalSetupScript)) {
       if (!$quiet) {
