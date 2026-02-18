@@ -4,6 +4,8 @@ services:
     arguments:
       - '@smoke.test_runner'
       - '@smoke.module_detector'
+      - '@config.factory'
+      - '@state'
     tags:
       - { name: drush.command }
 
@@ -12,6 +14,7 @@ services:
     arguments:
       - '@smoke.test_runner'
       - '@smoke.module_detector'
+      - '@config.factory'
     tags:
       - { name: drush.command }
 
@@ -20,6 +23,7 @@ services:
     arguments:
       - '@smoke.test_runner'
       - '@smoke.module_detector'
+      - '@config.factory'
     tags:
       - { name: drush.command }
 
@@ -29,6 +33,10 @@ services:
       - '@smoke.test_runner'
       - '@smoke.config_generator'
       - '@smoke.module_detector'
+      - '@module_handler'
+      - '@state'
+      - '@config.factory'
+      - '@entity_type.manager'
     tags:
       - { name: drush.command }
 
@@ -37,6 +45,7 @@ services:
     arguments:
       - '@smoke.test_runner'
       - '@module_handler'
+      - '@service_container'
     tags:
       - { name: drush.command }
 
