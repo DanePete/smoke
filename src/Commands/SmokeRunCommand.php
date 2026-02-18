@@ -56,7 +56,7 @@ final class SmokeRunCommand extends DrushCommands {
    * Main entry: show landing or run all tests.
    *
    * @param array $options
-   *   'run' and 'target' options.
+   *   The 'run' and 'target' options.
    */
   #[CLI\Command(name: 'smoke:run', aliases: ['smoke'])]
   #[CLI\Help(description: 'Smoke tests — run or see status.')]
