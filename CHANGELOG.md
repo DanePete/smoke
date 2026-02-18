@@ -4,6 +4,12 @@ All notable changes to the Smoke module are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-02-17
+
+### Bug fixes
+
+- Fixed Drush command instantiation: added missing constructor arguments in `drush.services.yml` so all smoke commands receive correct dependency injection (fixes ArgumentCountError when running `drush smoke`).
+
 ## [1.1.3] - 2026-02-17
 
 ### Bug fixes
@@ -71,7 +77,8 @@ Initial stable release.
 - Remote testing support via `--target` flag.
 - Host setup script (`host-setup.sh`) for one-command install.
 
-[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.1.3...1.0.x
+[Unreleased]: https://git.drupalcode.org/project/smoke/-/compare/1.1.4...1.0.x
+[1.1.4]: https://git.drupalcode.org/project/smoke/-/compare/1.1.3...1.1.4
 [1.1.3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.2...1.1.3
 [1.1.0-beta3]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta2...1.1.0-beta3
 [1.1.0-beta2]: https://git.drupalcode.org/project/smoke/-/compare/1.1.0-beta1...1.1.0-beta2
