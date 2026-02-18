@@ -90,6 +90,24 @@ final class TestRunner {
     // Output enabled so launch failures show. Results from JSON file.
     $process->run();
 
+    // Check for browser launch failure and attempt auto-recovery.
+    $err = $process->getErrorOutput();
+    $isLaunchFailure = $err !== ''
+      && $process->getExitCode() !== 0
+      && (str_contains($err, 'browserType.launch')
+        || str_contains($err, 'Failed to launch')
+        || str_contains($err, 'Executable doesn\'t exist'));
+
+    if ($isLaunchFailure && !($options['_retried'] ?? FALSE)) {
+      // Attempt auto-recovery: install browser deps and retry once.
+      $recovered = $this->attemptBrowserRecovery($playwrightDir);
+      if ($recovered) {
+        // Retry the test run with a flag to prevent infinite loop.
+        $options['_retried'] = TRUE;
+        return $this->run($suite, $targetUrl, $remoteCredentials, $options);
+      }
+    }
+
     // If process failed and no results, surface stderr (e.g. launch message).
     $resultsFileContent = file_exists($resultsFile)
       ? (file_get_contents($resultsFile) ?: '')
@@ -378,6 +396,51 @@ final class TestRunner {
    */
   private function getPlaywrightDir(): string {
     return $this->configGenerator->getModulePath() . '/playwright';
+  }
+
+  /**
+   * Attempts to recover from browser launch failure by installing deps.
+   *
+   * @param string $playwrightDir
+   *   Path to the Playwright directory.
+   *
+   * @return bool
+   *   TRUE if recovery was attempted and may have succeeded.
+   */
+  private function attemptBrowserRecovery(string $playwrightDir): bool {
+    // Try installing Chromium browser first.
+    $installBrowser = new Process(
+      ['npx', 'playwright', 'install', 'chromium'],
+      $playwrightDir,
+    );
+    $installBrowser->setTimeout(180);
+    $installBrowser->run();
+
+    // Then try to install system dependencies.
+    // Use sudo with DEBIAN_FRONTEND=noninteractive to avoid prompts.
+    $installDeps = new Process(
+      ['sudo', '-n', 'env', 'DEBIAN_FRONTEND=noninteractive', 'npx', 'playwright', 'install-deps', 'chromium'],
+      $playwrightDir,
+    );
+    $installDeps->setTimeout(120);
+    $installDeps->run();
+
+    // If that failed, try direct apt-get as fallback.
+    if (!$installDeps->isSuccessful()) {
+      $aptInstall = new Process(
+        ['sudo', '-n', 'apt-get', 'install', '-y',
+          'libnss3', 'libnspr4', 'libatk1.0-0', 'libatk-bridge2.0-0',
+          'libcups2', 'libdrm2', 'libxkbcommon0', 'libxcomposite1',
+          'libxdamage1', 'libxfixes3', 'libxrandr2', 'libgbm1', 'libasound2',
+        ],
+        $playwrightDir,
+      );
+      $aptInstall->setTimeout(60);
+      $aptInstall->run();
+    }
+
+    // Return true to signal retry should be attempted.
+    return TRUE;
   }
 
 }
