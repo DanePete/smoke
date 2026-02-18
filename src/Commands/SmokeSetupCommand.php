@@ -527,7 +527,11 @@ BASH;
         '  Path to global-setup.sh from your project root (press Enter to use default)',
         $scriptRel,
       );
-      $scriptRel = is_string($answer) && trim($answer) !== '' ? trim($answer) : $scriptRel;
+      $raw = is_string($answer) ? trim($answer) : '';
+      // Only use answer as path if it looks like a path (contains /); otherwise keep default.
+      if ($raw !== '' && str_contains($raw, '/')) {
+        $scriptRel = $raw;
+      }
     }
     $this->io()->newLine();
     $this->io()->text('  <fg=cyan;options=bold>Tip: For IDE on your Mac?</>');

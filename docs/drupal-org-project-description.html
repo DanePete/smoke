@@ -1,0 +1,182 @@
+<!-- Updated Drupal.org project description. Copy the following into the "Project description" / "Full description" field. -->
+
+<p>Smoke adds automated browser testing to your Drupal site with minimal setup. Install the module and run one setup command, then run <code>ddev drush smoke</code> to verify your site: homepage loads, login works, forms submit, commerce and search work, and more. Tests run in a real browser (Chromium via Playwright) with a live progress bar, and results appear in an admin dashboard or in your terminal. It's built for teams using Drupal on DDEV who want to quickly confirm that updates or deployments didn't break the site.</p>
+<p><strong>⚠️ DDEV is currently required.</strong> Smoke's setup and test execution rely on DDEV. Support for other local development environments (Lando, DKAN, bare metal) is planned but not yet available. If you're not using DDEV, this module won't work for you yet.</p>
+
+<h3 id="module-project--quickstart">Quick Start</h3>
+<p><strong>3 commands. 5 minutes. You're done.</strong></p>
+<pre><code># 1. Install
+ddev composer require drupal/smoke
+ddev drush en smoke -y
+
+# 2. Setup (one-time, downloads browser)
+ddev drush smoke:setup
+
+# 3. Run tests
+ddev drush smoke --run</code></pre>
+<p>That's it. You'll see a progress bar and results in your terminal.</p>
+
+<h3 id="module-project--setup-details">What Setup Does</h3>
+<p>The <code>ddev drush smoke:setup</code> command is a one-time process that takes 2-5 minutes on first run. Here's what happens:</p>
+<ol>
+<li><strong>Checks environment</strong> — Verifies DDEV is running and Node.js is available</li>
+<li><strong>Installs npm dependencies</strong> — Downloads Playwright and test utilities (~50 MiB)</li>
+<li><strong>Downloads Chromium</strong> — One-time download of the browser binary (~180 MiB). Cached per-user inside DDEV, shared across projects</li>
+<li><strong>Installs system libraries</strong> — Chromium needs libraries like <code>libnss3</code> and <code>libatk</code>. Smoke installs these automatically</li>
+<li><strong>Configures webform</strong> — If Webform module is enabled, prompts for which webform to test (or creates <code>smoke_test</code>)</li>
+<li><strong>Scans your site</strong> — Detects installed modules (Commerce, Search API, etc.) and generates test configuration</li>
+<li><strong>Creates test user</strong> — Sets up <code>smoke_bot</code> user and role for authentication tests</li>
+<li><strong>Installs DDEV hook</strong> — Adds <code>.ddev/config.smoke.yaml</code> so config auto-regenerates on <code>ddev start</code></li>
+<li><strong>Copies Playwright to project root</strong> — Suites and config copied so VS Code/Cursor can discover tests</li>
+<li><strong>Installs host command</strong> — Adds <code>ddev smoke-ide-setup</code>; run it once on your host for the IDE</li>
+<li><strong>Runs global Playwright setup</strong> — In container (skips if already installed). If you don't use global Playwright on your host, setup shows a tip with the path to run <code>bash &lt;path&gt;/global-setup.sh</code> from your project root (you can adjust the path when prompted)</li>
+</ol>
+<p><strong>What gets installed where:</strong></p>
+<ul>
+<li><code>smoke/playwright/node_modules/</code> — npm packages (~50 MiB)</li>
+<li><code>~/.cache/ms-playwright/</code> — Chromium browser inside container (~180 MiB, shared across projects)</li>
+<li><code>smoke/playwright/.smoke-config.json</code> — Generated test config (&lt;1 KB)</li>
+<li><code>.ddev/config.smoke.yaml</code> — DDEV post-start hook (&lt;1 KB)</li>
+<li><code>.ddev/commands/host/smoke-ide-setup</code> — Host command for IDE (run once on host)</li>
+</ul>
+<p><strong>Re-running setup:</strong> If you add new modules (Webform, Commerce, etc.), run <code>ddev drush smoke:setup</code> again. It skips the browser download and just regenerates the test config.</p>
+<p><strong>Auto-recovery:</strong> If browser launch fails during tests (e.g., missing dependencies after <code>ddev restart</code>), Smoke automatically reinstalls dependencies and retries.</p>
+
+<h3 id="module-project--optional">Optional Extras</h3>
+<p><strong>View results in browser:</strong></p>
+<pre><code># Open: /admin/reports/smoke</code></pre>
+<p><strong>Run just one suite:</strong></p>
+<pre><code>ddev drush smoke:suite auth
+ddev drush smoke:suite webform</code></pre>
+<p><strong>Quick sanity check (fastest):</strong></p>
+<pre><code>ddev drush smoke --run --quick</code></pre>
+<p><strong>Test your staging/production site:</strong></p>
+<pre><code>ddev drush smoke --run --target=https://mysite.pantheonsite.io</code></pre>
+<p><strong>VS Code / Cursor users:</strong></p>
+<pre><code>ddev smoke-ide-setup          # Run once on your host (after setup) so the IDE discovers tests
+ddev drush smoke:init         # Enables IDE test discovery and custom test directory</code></pre>
+<p>For global Playwright on your Mac (optional), setup prints a tip with <code>bash &lt;path&gt;/global-setup.sh</code> from project root; you can adjust the path when prompted.</p>
+
+<h3 id="module-project--features">Features</h3>
+<p><strong>What problem does Smoke solve?</strong><br>
+After a <code>composer update</code>, config change, or deployment, you need a fast way to know if the site still works. Smoke runs a set of browser tests and reports in seconds what works and what's broken.</p>
+<p><strong>Basic functionality</strong></p>
+<ul>
+<li>Runs Playwright browser tests against your Drupal site</li>
+<li>Auto-detects installed modules (Webform, Commerce, Search API, etc.) and runs only relevant tests</li>
+<li>Shows results in Reports → Smoke Tests or via Drush with a live progress bar</li>
+<li>Creates a <code>smoke_bot</code> test user for authentication tests</li>
+<li>Auto-fixes common issues like empty sitemaps with <code>drush smoke:fix</code></li>
+</ul>
+<p><strong>Unique features</strong></p>
+<ul>
+<li><strong>Zero-config detection</strong> — Enable the module, run setup, and Smoke figures out what to test</li>
+<li><strong>Self-sufficient setup</strong> — Installs only Chromium (~180 MiB) directly; no third-party DDEV addons required</li>
+<li><strong>Auto-recovery</strong> — If browser launch fails, Smoke automatically reinstalls dependencies and retries</li>
+<li><strong>Plugin system</strong> — Add custom test suites via PHP attributes or YAML; agencies can add site-specific tests without modifying the module</li>
+<li><strong>VS Code / Cursor integration</strong> — <code>ddev smoke-ide-setup</code> (run once on host) and <code>drush smoke:init</code> set up project-level Playwright config so IDE extensions discover your tests</li>
+<li><strong>Remote testing</strong> — Run the same tests against a live or staging URL</li>
+<li><strong>Accessibility checks</strong> — Built-in axe-core WCAG 2.1 AA scans on homepage and login page</li>
+<li><strong>Webform auto-creation</strong> — When Webform is enabled, Smoke creates a <code>smoke_test</code> form and tests it</li>
+<li><strong>Auto-fix command</strong> — <code>drush smoke:fix</code> analyzes failures and repairs common issues (e.g. regenerates sitemaps)</li>
+<li><strong>CI integration</strong> — JUnit XML export (<code>--junit</code>) and HTML reports (<code>--html</code>) for CI pipelines</li>
+<li><strong>Custom URLs</strong> — Add your own pages to test via the settings form</li>
+<li><strong>PHPUnit tests</strong> — Module ships with its own test suite, runnable via <code>drush smoke:unit</code></li>
+</ul>
+<p><strong>When and why use this module?</strong></p>
+<ul>
+<li>After running <code>composer update</code> on contrib modules</li>
+<li>Before and after deployments to staging or production</li>
+<li>As a quick health check for support teams managing multiple Drupal sites</li>
+<li>To catch PHP errors, broken images, mixed content, or JavaScript errors on key pages</li>
+</ul>
+<p><strong>Use cases</strong></p>
+<ul>
+<li>"Did that security update break the login page?"</li>
+<li>"Does checkout still work after the Commerce upgrade?"</li>
+<li>"Is the homepage returning 200 with no PHP fatals?"</li>
+<li>"Are there critical accessibility violations on the login page?"</li>
+</ul>
+
+<h3 id="module-project--additional-requirements">Additional Requirements</h3>
+<ul>
+<li><strong>DDEV (required)</strong> — Smoke currently only works with DDEV. The setup command handles Chromium, npm dependencies, and system libraries inside the DDEV container. Support for other environments is planned.</li>
+<li>Drupal 10 or 11</li>
+<li>Composer (via DDEV)</li>
+<li>Node/npm (inside DDEV container only; nothing installed on host)</li>
+</ul>
+
+<h3 id="module-project--recommended-libraries">Recommended modules/libraries</h3>
+<ul>
+<li><strong>Webform</strong> — Adds webform test suite</li>
+<li><strong>Drupal Commerce</strong> — Adds Commerce tests</li>
+<li><strong>Search API</strong> or <strong>Search</strong> — Adds search page tests</li>
+<li><strong>Simple Sitemap</strong> or <strong>XML Sitemap</strong> — Adds sitemap tests (with dashboard regeneration button and <code>drush smoke:fix --sitemap</code>)</li>
+</ul>
+<p>Smoke detects these automatically; no configuration needed.</p>
+
+<h3 id="module-project--extending-smoke">Adding Custom Test Suites</h3>
+<p>Agencies and developers can add custom test suites without modifying the Smoke module:</p>
+<p><strong>Option 1: PHP Plugin</strong><br>
+Create a class in your custom module at <code>src/Plugin/SmokeSuite/MySuite.php</code> with the <code>#[SmokeSuite]</code> attribute:</p>
+<pre><code>use Drupal\smoke\Attribute\SmokeSuite;
+use Drupal\smoke\Plugin\SuiteBase;
+
+#[SmokeSuite(
+  id: 'my_agency_suite',
+  label: 'My Agency Tests',
+  description: 'Custom tests for agency sites',
+)]
+class MyAgencySuite extends SuiteBase {
+  public function isDetected(): bool {
+    return TRUE; // or check for specific conditions
+  }
+}</code></pre>
+<p><strong>Option 2: YAML Definition</strong><br>
+Create <code>smoke.suites.yml</code> in your module or project root:</p>
+<pre><code>my_agency_suite:
+  label: 'My Agency Tests'
+  description: 'Custom tests for agency sites'
+  spec_path: 'playwright-smoke/suites/my-agency.spec.ts'</code></pre>
+<p><strong>Option 3: Project-level tests</strong><br>
+Run <code>drush smoke:init</code> to create a <code>playwright-smoke/</code> directory at your project root with example spec files. These are auto-discovered.</p>
+
+<h3 id="module-project--similar-projects">Similar projects</h3>
+<ul>
+<li><strong>PHPUnit / Nightwatch</strong> — Developer-focused unit/functional tests; Smoke runs higher-level browser tests with minimal setup</li>
+<li><strong>Behat / Drupal Extension</strong> — BDD-style tests requiring custom scenarios; Smoke has built-in suites and one command</li>
+<li><strong>Lighthouse, Pa11y</strong> — Accessibility/performance audits; Smoke includes axe-core as one suite among many, integrated into Drupal admin and Drush</li>
+</ul>
+<p>Smoke's differentiator: <strong>one setup command, one run command, broad coverage</strong> — no test authoring required. But when you need custom tests, the plugin system makes it easy.</p>
+
+<h3 id="module-project--support">Supporting this Module</h3>
+<p>(Leave blank or add your support link.)</p>
+
+<h3 id="module-project--community-documentation">Community Documentation</h3>
+<ul>
+<li><a href="https://git.drupalcode.org/project/smoke/-/blob/1.0.x/README.md">README</a> in the repository (includes full uninstall/cleanup guide)</li>
+<li><a href="https://git.drupalcode.org/project/smoke/-/blob/1.0.x/CHANGELOG.md">CHANGELOG</a></li>
+<li><a href="https://www.drupal.org/project/issues/smoke">Issue queue</a></li>
+</ul>
+
+<p><strong>Drush commands:</strong></p>
+<ul>
+<li><code>drush smoke</code> — Status landing page</li>
+<li><code>drush smoke --run</code> — Run all tests with live progress bar</li>
+<li><code>drush smoke --run --quick</code> — Quick sanity check (core_pages + auth only)</li>
+<li><code>drush smoke:list</code> — See detected suites</li>
+<li><code>drush smoke:suite [name]</code> — Run one suite</li>
+<li><code>drush smoke:setup</code> — Set up Playwright</li>
+<li><code>drush smoke:copy-to-project</code> — Copy to project root for IDE (used by <code>ddev smoke-ide-setup</code>)</li>
+<li><code>drush smoke:init</code> — Initialize for VS Code/Cursor</li>
+<li><code>drush smoke:fix</code> — Auto-fix common issues</li>
+<li><code>drush smoke:unit</code> — Run the module's PHPUnit tests</li>
+<li><code>drush smoke --run --suite=SUITE</code> — Run specific suites</li>
+<li><code>drush smoke --run --parallel</code> — Run suites in parallel (faster)</li>
+<li><code>drush smoke --run --watch</code> — Watch mode for test development</li>
+<li><code>drush smoke --run --junit=/path/to/results.xml</code> — CI-friendly JUnit XML output</li>
+<li><code>drush smoke --run --html=/path/to/report</code> — Interactive HTML report</li>
+<li><code>drush smoke --run --target=URL</code> — Run against a remote site</li>
+</ul>
+
+<p><strong>Test suites (auto-detected):</strong> Core Pages, Authentication, Webform, Commerce, Search, Health, Sitemap, Content, Accessibility</p>

@@ -53,17 +53,13 @@ ddev drush en smoke -y
 
 ## Setup
 
-After enabling the module, run the host setup script from your **project root** (where `.ddev/` lives):
-
-```bash
-bash web/modules/contrib/smoke/scripts/host-setup.sh
-```
-
-Or run setup entirely inside the container:
+From your project root (where `.ddev/` lives), run setup inside DDEV:
 
 ```bash
 ddev drush smoke:setup
 ```
+
+This installs Playwright, Chromium, and test config in one go. Alternatively you can run the host setup script: `bash web/modules/contrib/smoke/scripts/host-setup.sh`.
 
 ### What setup does
 
@@ -74,8 +70,11 @@ ddev drush smoke:setup
 5. **When the Webform module is enabled:** prompts for the **webform machine name** to use for smoke tests (e.g. `contact_us`, `smoke_test`). If that webform doesn’t exist, it is created with standard Name, Email, and Message fields. The legacy `smoke_test` webform is removed when you choose a different ID so the test uses your custom form.
 6. Generates the test configuration — scans your site for installed modules, webforms, commerce stores, search pages, etc.
 7. Creates a `smoke_bot` test user and role for authentication tests
-8. Verifies all test suites are wired up
-9. Installs a DDEV post-start hook (`config.smoke.yaml`) that auto-regenerates config on `ddev start`
+8. Installs a DDEV post-start hook (`config.smoke.yaml`) that auto-regenerates config on `ddev start`
+9. Copies Playwright suites and config to project root so the VS Code/Cursor extension can discover tests
+10. Installs the host command **`ddev smoke-ide-setup`** — run it once on your host so your IDE can run tests
+11. Verifies all test suites are wired up
+12. Runs global Playwright setup inside the container (script skips if already installed). If you already use global Playwright on your host (`PLAYWRIGHT_BROWSERS_PATH` set), setup shows "Global Playwright already installed (IDE)." Otherwise it shows a **Tip** with the path to run `bash <path>/global-setup.sh` from your project root on your host (you can adjust the path when prompted). See [Agency Setup: Global Playwright](#agency-setup-global-playwright-installation) for details.
 
 If the script appears to hang, it has been updated so the system-deps step no longer waits for input. If you see a warning that system deps could not be installed, run inside the container: `ddev exec "sudo npx playwright install-deps chromium"`. When running with `--silent` (e.g. from the DDEV post-start hook), the webform prompt is skipped and the existing setting is kept.
 
@@ -226,39 +225,29 @@ Access requires the `administer smoke tests` permission.
 
 ## Drush Commands
 
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `drush smoke:run` | `drush smoke` | Show status, or run all tests with `--run` |
-| `drush smoke:run --run` | `drush smoke --run` | Run all enabled test suites with progress bar |
-| `drush smoke:run --run --target=URL` | — | Run tests against a remote site |
-| `drush smoke:suite {id}` | — | Run a single suite (e.g. `webform`, `auth`, `core_pages`) |
-| `drush smoke:suite {id} --target=URL` | — | Run one suite against a remote site |
-| `drush smoke:list` | — | Show detected suites, enabled status, and last results |
-| `drush smoke:setup` | — | Install dependencies, browsers, generate config, verify test user |
-| `drush smoke:fix` | `sfix` | Analyze last results and auto-fix common issues |
-| `drush smoke:fix --sitemap` | — | Regenerate the XML sitemap |
-| `drush smoke:fix --all` | — | Fix all detected issues |
 | Command | Description |
 |---------|-------------|
-| `drush smoke` | Status landing page |
-| `drush smoke --run` | Run all tests with live progress bar |
+| `drush smoke` | Status landing page; use `--run` to run all tests with progress bar |
+| `drush smoke --run` | Run all enabled test suites |
 | `drush smoke --run --quick` | Fast sanity check (core_pages + auth only) |
 | `drush smoke --run --suite=SUITE` | Run specific suites |
-| `drush smoke --run --parallel` | Run suites in parallel (faster) |
+| `drush smoke --run --parallel` | Run suites in parallel |
 | `drush smoke --run --watch` | Watch mode for test development |
-| `drush smoke --run --junit=FILE` | CI-friendly JUnit XML output |
+| `drush smoke --run --junit=FILE` | JUnit XML output for CI |
 | `drush smoke --run --html=DIR` | Interactive HTML report |
 | `drush smoke --run --target=URL` | Run against a remote site |
-| `drush smoke:suite webform` | Run a single suite |
-| `drush smoke:fix` | Auto-fix detected issues (`--sitemap`, `--all`) |
-| `drush smoke:list` | List detected suites |
-| `drush smoke:setup` | Set up Playwright environment |
+| `drush smoke:list` | Show detected suites, enabled status, and last results |
+| `drush smoke:suite {id}` | Run a single suite (e.g. `webform`, `auth`, `core_pages`) |
+| `drush smoke:suite {id} --target=URL` | Run one suite against a remote site |
+| `drush smoke:setup` | Install dependencies, browsers, generate config, verify test user |
+| `drush smoke:copy-to-project` | Copy Playwright suites/config to project root (for IDE); used by `ddev smoke-ide-setup` |
 | `drush smoke:init` | Set up VS Code/Cursor integration and custom test directory |
+| `drush smoke:fix` | Auto-fix detected issues (`--sitemap`, `--all`); alias `sfix` |
 | `drush smoke:unit` | Run the module's PHPUnit tests |
-| `drush smoke:pantheon` | Show Pantheon site info or run tests (if smoke_pantheon enabled) |
+| `drush smoke:pantheon` | Pantheon site info or run tests (if smoke_pantheon enabled) |
 | `drush smoke:pantheon:set` | Set Pantheon site name |
 | `drush smoke:pantheon:check` | Validate Pantheon site and auth with Terminus |
-| `drush smoke:pantheon:sites` | List all Pantheon sites you have access to |
+| `drush smoke:pantheon:sites` | List Pantheon sites you have access to |
 
 ---
 
