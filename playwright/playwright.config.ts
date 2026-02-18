@@ -10,7 +10,7 @@
 
 import { defineConfig, devices } from '@playwright/test';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
-import { resolve, join } from 'path';
+import { resolve } from 'path';
 
 // Read the Drupal-generated config.
 const configPath = resolve(__dirname, '.smoke-config.json');
@@ -30,21 +30,18 @@ const parallelMode = !!process.env.SMOKE_PARALLEL;
 const verboseMode = !!process.env.SMOKE_VERBOSE;
 const htmlReportPath = process.env.SMOKE_HTML_PATH || '';
 
-// Discover all test directories (built-in + custom).
-function discoverTestDirs(): string[] {
-  const dirs: string[] = [];
+// Discover test glob patterns relative to __dirname.
+function discoverTestPatterns(): string[] {
+  const patterns: string[] = [];
 
-  // Built-in suites.
-  const builtInDir = resolve(__dirname, 'suites');
-  if (existsSync(builtInDir)) {
-    dirs.push(builtInDir);
-  }
+  // Built-in suites (always present).
+  patterns.push('suites/**/*.spec.ts');
 
-  // Project-level custom suites.
+  // Project-level custom suites (../../../playwright-smoke/suites).
   const projectRoot = resolve(__dirname, '../../..');
   const customProjectDir = resolve(projectRoot, 'playwright-smoke', 'suites');
   if (existsSync(customProjectDir)) {
-    dirs.push(customProjectDir);
+    patterns.push('../../../playwright-smoke/suites/**/*.spec.ts');
   }
 
   // Custom module suites.
@@ -54,7 +51,7 @@ function discoverTestDirs(): string[] {
       for (const mod of readdirSync(customModulesDir)) {
         const modSuitesDir = resolve(customModulesDir, mod, 'playwright', 'suites');
         if (existsSync(modSuitesDir) && statSync(modSuitesDir).isDirectory()) {
-          dirs.push(modSuitesDir);
+          patterns.push(`../../../web/modules/custom/${mod}/playwright/suites/**/*.spec.ts`);
         }
       }
     } catch { /* ignore */ }
@@ -68,16 +65,16 @@ function discoverTestDirs(): string[] {
         if (mod === 'smoke') continue;
         const modSuitesDir = resolve(contribModulesDir, mod, 'playwright', 'suites');
         if (existsSync(modSuitesDir) && statSync(modSuitesDir).isDirectory()) {
-          dirs.push(modSuitesDir);
+          patterns.push(`../../../web/modules/contrib/${mod}/playwright/suites/**/*.spec.ts`);
         }
       }
     } catch { /* ignore */ }
   }
 
-  return dirs;
+  return patterns;
 }
 
-const testDirs = discoverTestDirs();
+const testPatterns = discoverTestPatterns();
 
 // Build reporters array dynamically.
 const reporters: any[] = [
@@ -91,8 +88,11 @@ if (htmlReportPath) {
 }
 
 export default defineConfig({
-  // Use testMatch for multiple directories.
-  testMatch: testDirs.map(dir => join(dir, '**/*.spec.ts')),
+  // Relative to this config file.
+  testDir: __dirname,
+
+  // Match test patterns (relative glob patterns).
+  testMatch: testPatterns,
 
   timeout,
   expect: { timeout: 5_000 },
