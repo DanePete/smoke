@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
@@ -18,6 +19,7 @@ final class SmokeListCommand extends DrushCommands {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
   }
@@ -26,6 +28,7 @@ final class SmokeListCommand extends DrushCommands {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('config.factory'),
     );
   }
 
@@ -34,7 +37,7 @@ final class SmokeListCommand extends DrushCommands {
   public function list(): void {
     $detected = $this->moduleDetector->detect();
     $labels = ModuleDetector::suiteLabels();
-    $settings = \Drupal::config('smoke.settings');
+    $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $lastResults = $this->testRunner->getLastResults();
 

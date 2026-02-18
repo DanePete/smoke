@@ -13,6 +13,7 @@ use Drupal\smoke\Service\TestRunner;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Dashboard controller for Smoke test results.
@@ -20,19 +21,25 @@ use Symfony\Component\HttpFoundation\Request;
 final class DashboardController extends ControllerBase {
 
   public function __construct(
+    RequestStack $requestStack,
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
     private readonly CsrfTokenGenerator $csrfTokenGenerator,
-  ) {}
+    private readonly ContainerInterface $container,
+  ) {
+    parent::__construct($requestStack);
+  }
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
     return new static(
+      $container->get('request_stack'),
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
       $container->get('csrf_token'),
+      $container,
     );
   }
 
@@ -47,7 +54,8 @@ final class DashboardController extends ControllerBase {
     $labels = ModuleDetector::suiteLabels();
     $settings = $this->config('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
-    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: $this->getRequest()->getSchemeAndHttpHost();
+    $request = $this->requestStack->getCurrentRequest();
+    $baseUrl = getenv('DDEV_PRIMARY_URL') ?: ($request ? $request->getSchemeAndHttpHost() : '');
 
     // Build suite data for the template.
     $suites = [];
@@ -489,10 +497,10 @@ final class DashboardController extends ControllerBase {
       return new RedirectResponse(Url::fromRoute('smoke.dashboard')->toString());
     }
 
-    if ($this->moduleHandler()->moduleExists('simple_sitemap')) {
+    if ($this->moduleHandler()->moduleExists('simple_sitemap') && $this->container->has('simple_sitemap.generator')) {
       try {
         /** @var \Drupal\simple_sitemap\Manager\Generator $generator */
-        $generator = \Drupal::service('simple_sitemap.generator');
+        $generator = $this->container->get('simple_sitemap.generator');
         $generator->generate();
         $this->messenger()->addStatus($this->t('Sitemap regenerated successfully.'));
       }
@@ -502,9 +510,9 @@ final class DashboardController extends ControllerBase {
         ]));
       }
     }
-    elseif ($this->moduleHandler()->moduleExists('xmlsitemap')) {
+    elseif ($this->moduleHandler()->moduleExists('xmlsitemap') && $this->container->has('xmlsitemap.generator')) {
       try {
-        \Drupal::service('xmlsitemap.generator')->regenerate();
+        $this->container->get('xmlsitemap.generator')->regenerate();
         $this->messenger()->addStatus($this->t('Sitemap regenerated successfully.'));
       }
       catch (\Exception $e) {

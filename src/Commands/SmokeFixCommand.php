@@ -18,6 +18,7 @@ final class SmokeFixCommand extends DrushCommands {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleHandlerInterface $moduleHandler,
+    private readonly ContainerInterface $container,
   ) {
     parent::__construct();
   }
@@ -26,6 +27,7 @@ final class SmokeFixCommand extends DrushCommands {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('module_handler'),
+      $container,
     );
   }
 
@@ -92,10 +94,10 @@ final class SmokeFixCommand extends DrushCommands {
   private function fixSitemap(): void {
     $this->io()->text('  <fg=blue>▸</> Regenerating XML sitemap...');
 
-    if ($this->moduleHandler->moduleExists('simple_sitemap')) {
+    if ($this->moduleHandler->moduleExists('simple_sitemap') && $this->container->has('simple_sitemap.generator')) {
       try {
         /** @var \Drupal\simple_sitemap\Manager\Generator $generator */
-        $generator = \Drupal::service('simple_sitemap.generator');
+        $generator = $this->container->get('simple_sitemap.generator');
         $generator->generate();
         $this->io()->text('    <fg=green>✓</> Sitemap regenerated (simple_sitemap).');
       }
@@ -103,9 +105,9 @@ final class SmokeFixCommand extends DrushCommands {
         $this->io()->text('    <fg=red>✕</> Failed: ' . $e->getMessage());
       }
     }
-    elseif ($this->moduleHandler->moduleExists('xmlsitemap')) {
+    elseif ($this->moduleHandler->moduleExists('xmlsitemap') && $this->container->has('xmlsitemap.generator')) {
       try {
-        \Drupal::service('xmlsitemap.generator')->regenerate();
+        $this->container->get('xmlsitemap.generator')->regenerate();
         $this->io()->text('    <fg=green>✓</> Sitemap regenerated (xmlsitemap).');
       }
       catch (\Exception $e) {

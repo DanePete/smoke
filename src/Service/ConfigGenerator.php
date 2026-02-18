@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleExtensionList;
 use Drupal\Core\State\StateInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -18,6 +19,7 @@ final class ConfigGenerator {
     private readonly StateInterface $state,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly RequestStack $requestStack,
+    private readonly ModuleExtensionList $moduleExtensionList,
   ) {}
 
   /**
@@ -111,7 +113,7 @@ final class ConfigGenerator {
    * Returns the absolute path to this module.
    */
   public function getModulePath(): string {
-    return DRUPAL_ROOT . '/' . \Drupal::service('extension.list.module')->getPath('smoke');
+    return DRUPAL_ROOT . '/' . $this->moduleExtensionList->getPath('smoke');
   }
 
   /**

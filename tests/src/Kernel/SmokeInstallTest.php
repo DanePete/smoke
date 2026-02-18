@@ -31,11 +31,12 @@ final class SmokeInstallTest extends KernelTestBase {
     parent::setUp();
 
     $this->installEntitySchema('user');
+    $this->installEntitySchema('user_role');
     $this->installConfig(['smoke']);
 
     // KernelTestBase only loads .module files automatically. The .install
     // file must be loaded explicitly so smoke_install() is available.
-    module_load_install('smoke');
+    $this->container->get('module_handler')->loadInclude('smoke', 'install');
 
     // Run the install hook to create the smoke_bot user and role.
     smoke_install();

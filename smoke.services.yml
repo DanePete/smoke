@@ -13,6 +13,7 @@ services:
       - '@state'
       - '@config.factory'
       - '@request_stack'
+      - '@extension.list.module'
 
   smoke.test_runner:
     class: Drupal\smoke\Service\TestRunner

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\State\StateInterface;
 use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
@@ -19,6 +21,8 @@ final class SmokeRunCommand extends DrushCommands {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly ConfigFactoryInterface $configFactory,
+    private readonly StateInterface $state,
   ) {
     parent::__construct();
   }
@@ -27,6 +31,8 @@ final class SmokeRunCommand extends DrushCommands {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('config.factory'),
+      $container->get('state'),
     );
   }
 
@@ -68,13 +74,13 @@ final class SmokeRunCommand extends DrushCommands {
    * Shows the landing page with status and commands.
    */
   private function showLanding(): void {
-    $siteConfig = \Drupal::config('system.site');
+    $siteConfig = $this->configFactory->get('system.site');
     $siteName = (string) $siteConfig->get('name');
     $baseUrl = getenv('DDEV_PRIMARY_URL') ?: 'unknown';
     $isSetup = $this->testRunner->isSetup();
     $detected = $this->moduleDetector->detect();
     $labels = ModuleDetector::suiteLabels();
-    $settings = \Drupal::config('smoke.settings');
+    $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $lastResults = $this->testRunner->getLastResults();
     $lastRun = $this->testRunner->getLastRunTime();
@@ -205,7 +211,7 @@ final class SmokeRunCommand extends DrushCommands {
       $this->io()->text("    Status report: {$baseUrl}/admin/reports/status");
       $hasWebform = !empty($detected['webform']['detected']);
       if ($hasWebform) {
-        $webformId = (string) ($detected['webform']['form']['id'] ?? \Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $webformId = (string) ($detected['webform']['form']['id'] ?? $this->configFactory->get('smoke.settings')->get('webform_id') ?? 'smoke_test');
         $this->io()->text("    Submissions:   {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
       $this->io()->newLine();
@@ -247,7 +253,7 @@ final class SmokeRunCommand extends DrushCommands {
     }
 
     // Header.
-    $siteConfig = \Drupal::config('system.site');
+    $siteConfig = $this->configFactory->get('system.site');
     $siteName = (string) $siteConfig->get('name');
     $displayUrl = $targetUrl ?: (getenv('DDEV_PRIMARY_URL') ?: 'unknown');
     $hasTerminus = $remoteCredentials !== NULL;
@@ -270,7 +276,7 @@ final class SmokeRunCommand extends DrushCommands {
 
     // Determine which suites to run.
     $detected = $this->moduleDetector->detect();
-    $settings = \Drupal::config('smoke.settings');
+    $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $labels = ModuleDetector::suiteLabels();
 
@@ -289,7 +295,7 @@ final class SmokeRunCommand extends DrushCommands {
     }
 
     // Clear previous results for a clean full run.
-    \Drupal::state()->set('smoke.last_results', []);
+    $this->state->set('smoke.last_results', []);
 
     // Configure progress bar.
     ProgressBar::setFormatDefinition('smoke', "  <fg=cyan>▸</> %message:-18s%  %bar%  %current%/%max% suites  <fg=gray>%elapsed:6s%</>");
@@ -314,6 +320,18 @@ final class SmokeRunCommand extends DrushCommands {
 
       // Run this suite (progress bar visible while waiting).
       $results = $this->testRunner->run($suiteId, $targetUrl, $remoteCredentials);
+
+      // If Playwright failed to launch (e.g. missing Chromium deps), show the real error and stop.
+      if (!empty($results['error'])) {
+        $progress->clear();
+        $this->io()->newLine();
+        $this->io()->error($results['error']);
+        $this->io()->text('  Run <options=bold>ddev drush smoke:setup</> or install browser deps:');
+        $this->io()->text('  <options=bold>ddev exec "sudo npx playwright install-deps chromium"</>');
+        $this->io()->newLine();
+        return;
+      }
+
       $suiteResult = $results['suites'][$suiteId] ?? [];
 
       $passed = (int) ($suiteResult['passed'] ?? 0);
@@ -421,7 +439,7 @@ final class SmokeRunCommand extends DrushCommands {
       $allSuiteResults = $this->testRunner->getLastResults();
       $allSuites = $allSuiteResults['suites'] ?? [];
       if (!$targetUrl && $this->hasWebformResults($allSuites)) {
-        $webformId = (string) (\Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $webformId = (string) ($this->configFactory->get('smoke.settings')->get('webform_id') ?? 'smoke_test');
         $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
     }

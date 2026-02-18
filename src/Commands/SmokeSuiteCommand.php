@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\smoke\Commands;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\smoke\Service\ModuleDetector;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
@@ -19,6 +20,7 @@ final class SmokeSuiteCommand extends DrushCommands {
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
+    private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
   }
@@ -27,6 +29,7 @@ final class SmokeSuiteCommand extends DrushCommands {
     return new static(
       $container->get('smoke.test_runner'),
       $container->get('smoke.module_detector'),
+      $container->get('config.factory'),
     );
   }
 
@@ -127,7 +130,7 @@ final class SmokeSuiteCommand extends DrushCommands {
     if ($baseUrl) {
       $this->io()->newLine();
       if ($suite === 'webform') {
-        $webformId = (string) (\Drupal::config('smoke.settings')->get('webform_id') ?? 'smoke_test');
+        $webformId = (string) ($this->configFactory->get('smoke.settings')->get('webform_id') ?? 'smoke_test');
         $this->io()->text("  <fg=gray>View form:</>       {$baseUrl}/webform/{$webformId}");
         $this->io()->text("  <fg=gray>Submissions:</>     {$baseUrl}/admin/structure/webform/manage/{$webformId}/results/submissions");
       }
