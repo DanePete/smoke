@@ -473,16 +473,13 @@ ddev drush smoke --run    # Run all tests including your new ones
 
 ## After Module Updates
 
-This is the primary use case Smoke was built for. After running `composer update` on contrib modules:
+This is the primary use case Smoke was built for. After running `composer update` on contrib modules, run smoke tests to verify nothing broke.
+
+### Manual workflow
 
 ```bash
-# Update contrib modules
 ddev composer update
-
-# Clear caches
 ddev drush cr
-
-# Run smoke tests to verify nothing broke
 ddev drush smoke --run
 ```
 
@@ -492,6 +489,52 @@ If you've added or removed modules (e.g. added `webform`), regenerate the config
 ddev drush smoke:setup
 ddev drush smoke --run
 ```
+
+### Automatic: Composer scripts
+
+Add Composer scripts to your **project root** `composer.json` so smoke tests run automatically after every `composer install` or `composer update`. If any test fails, the command exits non-zero — broken updates are caught immediately.
+
+```json
+{
+  "scripts": {
+    "post-update-cmd": [
+      "./vendor/bin/drush cr",
+      "./vendor/bin/drush smoke --run"
+    ],
+    "post-install-cmd": [
+      "./vendor/bin/drush cr",
+      "./vendor/bin/drush smoke --run"
+    ]
+  }
+}
+```
+
+If your `composer.json` already has `post-update-cmd` or `post-install-cmd` entries, append the two lines to the existing arrays instead of replacing them.
+
+For DDEV users running `ddev composer update`, the scripts execute inside the container where Drush is available at `./vendor/bin/drush`. Running `smoke:setup` will offer to add these scripts automatically.
+
+### Enforce before push: git pre-push hook
+
+To prevent pushing when smoke tests fail, add a git pre-push hook. Create `.git/hooks/pre-push` in your project root:
+
+```bash
+#!/usr/bin/env bash
+# Smoke pre-push hook — tests must pass before pushing.
+echo "Running smoke tests..."
+ddev drush smoke --run
+exit $?
+```
+
+Then make it executable:
+
+```bash
+chmod +x .git/hooks/pre-push
+```
+
+Now `git push` will run the full smoke suite first. If any test fails, the push is blocked.
+
+> **Tip:** To share this hook with your team, store it in a tracked directory (e.g. `scripts/hooks/pre-push`) and have each developer symlink it:
+> `ln -sf ../../scripts/hooks/pre-push .git/hooks/pre-push`
 
 ---
 

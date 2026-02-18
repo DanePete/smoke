@@ -24,6 +24,24 @@ use Symfony\Component\Process\Process;
  */
 final class SmokeSetupCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeSetupCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ConfigGenerator $configGenerator
+   *   The config generator service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler.
+   * @param \Drupal\Core\State\StateInterface $state
+   *   The state service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity type manager.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ConfigGenerator $configGenerator,
@@ -36,6 +54,9 @@ final class SmokeSetupCommand extends DrushCommands {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
@@ -51,6 +72,12 @@ final class SmokeSetupCommand extends DrushCommands {
   #[CLI\Command(name: 'smoke:setup')]
   #[CLI\Help(description: 'Set up Playwright from scratch: DDEV addon, browsers, npm deps, test config.')]
   #[CLI\Option(name: 'silent', description: 'Suppress output (used by DDEV post-start hook).')]
+  /**
+   * Sets up Playwright: npm deps, Chromium, config, smoke_bot user.
+   *
+   * @param array $options
+   *   Options including 'silent' to suppress output.
+   */
   public function setup(array $options = ['silent' => FALSE]): void {
     $quiet = (bool) $options['silent'];
 
@@ -156,20 +183,22 @@ final class SmokeSetupCommand extends DrushCommands {
       }
     }
 
-    // Always ensure system dependencies are installed (idempotent). Required for
-    // browser launch; after "Chromium already installed" we used to skip this,
-    // so deps were missing when browser was installed earlier or after ddev restart.
+    // Always ensure system dependencies are installed (idempotent).
+    // Required for browser launch; after "Chromium already installed" we
+    // used to skip this, so deps were missing after ddev restart.
     if (!$quiet) {
       $this->step('Ensuring system dependencies...');
     }
     if (!$this->installSystemDeps($playwrightDir, $quiet)) {
       if (!$quiet) {
         $this->warn('Could not install system deps automatically.');
-        $this->io()->text('    Run manually: <options=bold>ddev exec "sudo npx playwright install-deps chromium"</>');
+        $this->io()->text(
+          '    Run manually: <options=bold>ddev exec "sudo npx playwright install-deps chromium"</>'
+        );
       }
     }
 
-    // Step 5: Configure webform for smoke tests (interactive when Webform enabled).
+    // Step 5: Configure webform for smoke tests (interactive if Webform on).
     if (!$quiet && $this->moduleHandler->moduleExists('webform')) {
       $this->configureWebformId();
     }
@@ -217,7 +246,9 @@ final class SmokeSetupCommand extends DrushCommands {
       }
     }
     elseif (!$quiet) {
-      $this->warn('smoke_bot not found. Reinstall the module: drush pmu smoke && drush en smoke');
+      $this->warn(
+        'smoke_bot not found. Reinstall: drush pmu smoke && drush en smoke'
+      );
     }
 
     // Step 8: Ensure DDEV post-start hook exists (so config regens on ddev start).
@@ -309,14 +340,32 @@ YAML;
     return FALSE;
   }
 
+  /**
+   * Outputs a step message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function step(string $message): void {
     $this->io()->text("  <fg=blue>▸</> {$message}");
   }
 
+  /**
+   * Outputs an OK message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function ok(string $message): void {
     $this->io()->text("    <fg=green>✓</> {$message}");
   }
 
+  /**
+   * Outputs a warning message.
+   *
+   * @param string $message
+   *   The message.
+   */
   private function warn(string $message): void {
     $this->io()->text("    <fg=yellow>⚠</> {$message}");
   }
@@ -504,8 +553,11 @@ YAML;
       $this->io()->text('    <fg=yellow>Direct install failed, refreshing apt keys...</>');
     }
 
+    $aptCmd = 'apt-get update --allow-insecure-repositories 2>/dev/null; '
+      . 'apt-get install -y --no-install-recommends --allow-unauthenticated '
+      . implode(' ', $packages);
     $fixKeys = new Process(
-      ['sudo', 'bash', '-c', 'apt-get update --allow-insecure-repositories 2>/dev/null; apt-get install -y --no-install-recommends --allow-unauthenticated ' . implode(' ', $packages)],
+      ['sudo', 'bash', '-c', $aptCmd],
       $playwrightDir,
     );
     $fixKeys->setTimeout(120);

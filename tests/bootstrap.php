@@ -11,8 +11,8 @@
 declare(strict_types=1);
 
 // Find the Composer autoloader by walking up from the tests/ directory.
-// Module typically lives at web/modules/contrib/smoke (5 levels to project root)
-// or modules/contrib/smoke (4 levels to project root).
+// Module typically at web/modules/contrib/smoke (5 levels up) or
+// modules/contrib/smoke (4 levels up).
 $candidates = [
   dirname(__DIR__, 5) . '/vendor/autoload.php',
   dirname(__DIR__, 4) . '/vendor/autoload.php',

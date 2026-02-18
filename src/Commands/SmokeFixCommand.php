@@ -15,6 +15,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class SmokeFixCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeFixCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler.
+   * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
+   *   The service container.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleHandlerInterface $moduleHandler,
@@ -23,6 +33,9 @@ final class SmokeFixCommand extends DrushCommands {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
@@ -37,6 +50,12 @@ final class SmokeFixCommand extends DrushCommands {
   #[CLI\Usage(name: 'drush smoke:fix --sitemap', description: 'Regenerate the XML sitemap.')]
   #[CLI\Option(name: 'sitemap', description: 'Regenerate the XML sitemap.')]
   #[CLI\Option(name: 'all', description: 'Fix all detected issues.')]
+  /**
+   * Analyzes last results and applies fixes (e.g. regenerate sitemap).
+   *
+   * @param array $options
+   *   Options: 'sitemap', 'all'.
+   */
   public function fix(array $options = ['sitemap' => FALSE, 'all' => FALSE]): void {
     $this->io()->newLine();
     $this->io()->text('  <options=bold>Smoke — Fix</>');

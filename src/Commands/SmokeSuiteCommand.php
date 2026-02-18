@@ -17,6 +17,16 @@ use Symfony\Component\Process\Process;
  */
 final class SmokeSuiteCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeSuiteCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
@@ -25,6 +35,9 @@ final class SmokeSuiteCommand extends DrushCommands {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
@@ -39,6 +52,14 @@ final class SmokeSuiteCommand extends DrushCommands {
   #[CLI\Usage(name: 'drush smoke:suite webform', description: 'Run only the webform tests.')]
   #[CLI\Usage(name: 'drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io', description: 'Test a remote site.')]
   #[CLI\Option(name: 'target', description: 'Remote URL to test against.')]
+  /**
+   * Runs a single smoke test suite.
+   *
+   * @param string $suite
+   *   Suite id (e.g. webform, core_pages).
+   * @param array $options
+   *   Options including 'target' for remote URL.
+   */
   public function suite(string $suite, array $options = ['target' => '']): void {
     if (!$this->testRunner->isSetup()) {
       $projectRoot = DRUPAL_ROOT . '/..';
@@ -49,7 +70,7 @@ final class SmokeSuiteCommand extends DrushCommands {
       if ($isDdev && $hasAddon) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
-        $process = new \Symfony\Component\Process\Process(
+        $process = new Process(
           ['drush', 'smoke:setup'],
           $projectRoot,
         );
@@ -181,6 +202,7 @@ final class SmokeSuiteCommand extends DrushCommands {
    * Reads remote auth credentials from environment variables.
    *
    * @return array<string, string>|null
+   *   Credentials array or NULL.
    */
   private function getRemoteCredentials(): ?array {
     $user = getenv('SMOKE_REMOTE_USER') ?: '';

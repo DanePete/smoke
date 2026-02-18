@@ -1,11 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * @file
  * Install, update, and uninstall functions for the Smoke module.
  */
+
+declare(strict_types=1);
 
 use Drupal\user\Entity\Role;
 use Drupal\user\Entity\User;

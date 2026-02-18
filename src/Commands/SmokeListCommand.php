@@ -16,6 +16,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class SmokeListCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeListCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
@@ -24,6 +34,9 @@ final class SmokeListCommand extends DrushCommands {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
@@ -34,6 +47,9 @@ final class SmokeListCommand extends DrushCommands {
 
   #[CLI\Command(name: 'smoke:list', aliases: ['smoke:ls'])]
   #[CLI\Help(description: 'List all detected smoke test suites.')]
+  /**
+   * Lists detected test suites and their status.
+   */
   public function list(): void {
     $detected = $this->moduleDetector->detect();
     $labels = ModuleDetector::suiteLabels();

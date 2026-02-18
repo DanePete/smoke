@@ -67,6 +67,7 @@ final class ModuleDetector {
    * Returns human-readable labels for each suite.
    *
    * @return array<string, string>
+   *   Map of suite id to label.
    */
   public static function suiteLabels(): array {
     return [
@@ -86,6 +87,7 @@ final class ModuleDetector {
    * Returns icon names for each suite (Drupal core icons).
    *
    * @return array<string, string>
+   *   Map of suite id to icon name.
    */
   public static function suiteIcons(): array {
     return [
@@ -134,9 +136,9 @@ final class ModuleDetector {
   /**
    * Detects webform entities and their fields.
    *
-   * Uses the configured webform_id (smoke.settings). If the ID is 'smoke_test'
-   * and the form doesn't exist, it is auto-created. For any other ID, only
-   * existing webforms are used so tests can be tailored to agency/company forms.
+   * Uses webform_id from smoke.settings. If ID is 'smoke_test' and the form
+   * does not exist, it is auto-created. For any other ID, only existing
+   * webforms are used so tests can target agency/company forms.
    */
   private function detectWebform(): array {
     try {
@@ -212,7 +214,7 @@ final class ModuleDetector {
    * Creates a webform with standard elements (Name, Email, Message) if missing.
    *
    * Used by smoke:setup when the customer chooses a webform ID. Id and title
-   * are normalized; the form is created open with a simple confirmation message.
+   * are normalized; the form is created open with a simple confirmation.
    *
    * @return bool
    *   TRUE if the webform was created, FALSE if it already existed.
@@ -250,7 +252,14 @@ final class ModuleDetector {
   }
 
   /**
-   * Creates a single webform entity with standard Name, Email, Message elements.
+   * Creates a webform entity with standard Name, Email, Message elements.
+   *
+   * @param object $storage
+   *   Webform entity storage.
+   * @param string $id
+   *   Webform machine name.
+   * @param string $title
+   *   Webform label.
    */
   private function createWebformWithStandardElements($storage, string $id, string $title): void {
     $elements = <<<YAML

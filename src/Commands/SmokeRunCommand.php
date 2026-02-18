@@ -12,12 +12,25 @@ use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Process\Process;
 
 /**
  * Main smoke command — landing page and test runner.
  */
 final class SmokeRunCommand extends DrushCommands {
 
+  /**
+   * Constructs the SmokeRunCommand.
+   *
+   * @param \Drupal\smoke\Service\TestRunner $testRunner
+   *   The test runner service.
+   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
+   *   The module detector service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory.
+   * @param \Drupal\Core\State\StateInterface $state
+   *   The state service.
+   */
   public function __construct(
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
@@ -27,6 +40,9 @@ final class SmokeRunCommand extends DrushCommands {
     parent::__construct();
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
@@ -60,6 +76,7 @@ final class SmokeRunCommand extends DrushCommands {
    * Set by terminus-test.sh before invoking drush smoke.
    *
    * @return array<string, string>|null
+   *   Credentials array or NULL.
    */
   private function getRemoteCredentials(): ?array {
     $user = getenv('SMOKE_REMOTE_USER') ?: '';
@@ -104,7 +121,7 @@ final class SmokeRunCommand extends DrushCommands {
         $this->io()->text('  <fg=cyan;options=bold>AUTO-SETUP</>  First run detected — setting up...');
         $this->io()->newLine();
 
-        $process = new \Symfony\Component\Process\Process(
+        $process = new Process(
           ['drush', 'smoke:setup'],
           DRUPAL_ROOT . '/..',
         );
@@ -236,7 +253,7 @@ final class SmokeRunCommand extends DrushCommands {
       if ($isDdev) {
         $this->io()->text('  <fg=cyan>Setting up Playwright (first run)...</>');
         $this->io()->newLine();
-        $process = new \Symfony\Component\Process\Process(
+        $process = new Process(
           ['drush', 'smoke:setup'],
           DRUPAL_ROOT . '/..',
         );
@@ -298,7 +315,8 @@ final class SmokeRunCommand extends DrushCommands {
     $this->state->set('smoke.last_results', []);
 
     // Configure progress bar.
-    ProgressBar::setFormatDefinition('smoke', "  <fg=cyan>▸</> %message:-18s%  %bar%  %current%/%max% suites  <fg=gray>%elapsed:6s%</>");
+    $format = "  <fg=cyan>▸</> %message:-18s%  %bar%  %current%/%max% suites  <fg=gray>%elapsed:6s%</>";
+    ProgressBar::setFormatDefinition('smoke', $format);
     $progress = new ProgressBar($this->io(), $totalSuites);
     $progress->setFormat('smoke');
     $progress->setBarCharacter('<fg=green>━</>');

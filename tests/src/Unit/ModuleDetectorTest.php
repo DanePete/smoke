@@ -62,7 +62,7 @@ final class ModuleDetectorTest extends TestCase {
   }
 
   /**
-   * Verifies every suite ID maps to a Playwright spec file via naming convention.
+   * Verifies every suite ID maps to a Playwright spec file via naming.
    *
    * Suite IDs use underscores (core_pages) while spec files use dashes
    * (core-pages.spec.ts). This test ensures the mapping stays consistent.
