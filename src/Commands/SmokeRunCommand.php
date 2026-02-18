@@ -77,7 +77,7 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Usage(name: 'drush smoke --run --junit=/path/to/results.xml', description: 'Output JUnit XML for CI.')]
   #[CLI\Usage(name: 'drush smoke --run --html=/path/to/report', description: 'Generate HTML report.')]
   #[CLI\Usage(name: 'drush smoke --run --parallel', description: 'Run suites in parallel (faster).')]
-  #[CLI\Usage(name: 'drush smoke --run --verbose', description: 'Show detailed test output.')]
+  #[CLI\Usage(name: 'drush smoke --run --detailed', description: 'Show detailed test output.')]
   #[CLI\Usage(name: 'drush smoke --run --suite=auth,webform', description: 'Run only specific suites.')]
   #[CLI\Usage(name: 'drush smoke --run --watch', description: 'Watch mode: re-run on file changes.')]
   #[CLI\Usage(name: 'drush smoke --run --target=URL', description: 'Test remote URL.')]
@@ -87,17 +87,17 @@ final class SmokeRunCommand extends DrushCommands {
   #[CLI\Option(name: 'junit', description: 'Output JUnit XML to this file path for CI integration.')]
   #[CLI\Option(name: 'html', description: 'Output HTML report to this directory path.')]
   #[CLI\Option(name: 'parallel', description: 'Run test suites in parallel (uses multiple workers).')]
-  #[CLI\Option(name: 'verbose', description: 'Show detailed test output including individual test steps.')]
+  #[CLI\Option(name: 'detailed', description: 'Show detailed test output including individual test steps.')]
   #[CLI\Option(name: 'suite', description: 'Comma-separated list of specific suites to run (e.g., auth,webform,core_pages).')]
   #[CLI\Option(name: 'watch', description: 'Watch mode: re-run tests when spec files change.')]
-  public function run(array $options = ['run' => FALSE, 'target' => '', 'quick' => FALSE, 'junit' => '', 'html' => '', 'parallel' => FALSE, 'verbose' => FALSE, 'suite' => '', 'watch' => FALSE]): void {
+  public function run(array $options = ['run' => FALSE, 'target' => '', 'quick' => FALSE, 'junit' => '', 'html' => '', 'parallel' => FALSE, 'detailed' => FALSE, 'suite' => '', 'watch' => FALSE]): void {
     if ($options['run']) {
       $target = $options['target'] ?: NULL;
       $quickMode = (bool) $options['quick'];
       $junitPath = $options['junit'] ?: NULL;
       $htmlPath = $options['html'] ?: NULL;
       $parallel = (bool) $options['parallel'];
-      $verbose = (bool) $options['verbose'];
+      $verbose = (bool) $options['detailed'];
       $suiteFilter = $options['suite'] ?: NULL;
       $watchMode = (bool) $options['watch'];
       $remoteCredentials = $this->getRemoteCredentials();

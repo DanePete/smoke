@@ -12,9 +12,8 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Requirements](#requirements)
-- [Install](#install)
-- [Setup](#setup)
 - [Running Tests](#running-tests)
 - [Admin Dashboard](#admin-dashboard)
 - [Drush Commands](#drush-commands)
@@ -22,8 +21,8 @@ Submit bug reports and feature suggestions, or track changes in the [issue queue
 - [Configuration](#configuration)
 - [Custom URLs](#custom-urls)
 - [Adding Custom Tests](#adding-custom-tests)
+- [Plugin System](#plugin-system)
 - [After Module Updates](#after-module-updates)
-- [Agency Setup: Global Playwright Installation](#agency-setup-global-playwright-installation)
 - [Architecture](#architecture)
 - [Troubleshooting](#troubleshooting)
 - [Uninstall & Cleanup](#uninstall--cleanup)
