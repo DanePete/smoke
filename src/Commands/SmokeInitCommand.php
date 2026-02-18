@@ -8,6 +8,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\Process\Process;
 
 /**
  * Initializes Smoke Tests for VS Code / Cursor integration.
@@ -78,14 +79,28 @@ final class SmokeInitCommand extends DrushCommands {
       $skipped[] = 'playwright.config.ts (exists, use --force to overwrite)';
     }
 
-    // 2. Create playwright-smoke/suites/ directory.
+    // 2. Ensure project root has @playwright/test so the IDE extension can run tests.
+    $npmInstall = new Process(
+      ['npm', 'install', '--save-dev', '@playwright/test'],
+      $projectRoot,
+    );
+    $npmInstall->setTimeout(120);
+    $npmInstall->run();
+    if ($npmInstall->isSuccessful()) {
+      $created[] = 'Installed @playwright/test at project root (IDE extension can discover tests)';
+    }
+    else {
+      $this->io()->warning('Could not run npm install at project root. Install manually: npm i --save-dev @playwright/test');
+    }
+
+    // 3. Create playwright-smoke/suites/ directory.
     $customSuitesDir = $projectRoot . '/playwright-smoke/suites';
     if (!is_dir($customSuitesDir)) {
       mkdir($customSuitesDir, 0755, TRUE);
       $created[] = 'playwright-smoke/suites/';
     }
 
-    // 3. Copy example custom suite.
+    // 4. Copy example custom suite.
     $exampleDest = $customSuitesDir . '/example-custom.spec.ts';
     $exampleTemplate = $templatesPath . '/example-custom.spec.ts.template';
 
@@ -100,7 +115,7 @@ final class SmokeInitCommand extends DrushCommands {
       $skipped[] = 'example-custom.spec.ts (exists)';
     }
 
-    // 4. Create smoke.suites.yml example.
+    // 5. Create smoke.suites.yml example.
     $yamlDest = $projectRoot . '/playwright-smoke/smoke.suites.yml';
     if (!file_exists($yamlDest) || $force) {
       $yamlContent = <<<YAML
@@ -131,7 +146,7 @@ YAML;
       $skipped[] = 'smoke.suites.yml (exists)';
     }
 
-    // 5. Create/update .gitignore.
+    // 6. Create/update .gitignore.
     $gitignoreDest = $projectRoot . '/playwright-smoke/.gitignore';
     if (!file_exists($gitignoreDest)) {
       $gitignoreContent = <<<GITIGNORE
@@ -146,7 +161,7 @@ GITIGNORE;
       $created[] = 'playwright-smoke/.gitignore';
     }
 
-    // 6. Update root .gitignore if it exists.
+    // 7. Update root .gitignore if it exists.
     $rootGitignore = $projectRoot . '/.gitignore';
     if (file_exists($rootGitignore)) {
       $content = file_get_contents($rootGitignore);

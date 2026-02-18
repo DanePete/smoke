@@ -294,7 +294,18 @@ YAML;
       $this->configureComposerScripts($projectRoot);
     }
 
-    // Step 10: Sanity check — list tests.
+    // Step 10: Ensure project root has @playwright/test so the IDE extension can discover tests.
+    $npmInstall = new Process(
+      ['npm', 'install', '--save-dev', '@playwright/test'],
+      $projectRoot,
+    );
+    $npmInstall->setTimeout(120);
+    $npmInstall->run();
+    if ($npmInstall->isSuccessful() && !$quiet) {
+      $this->ok('Project root has @playwright/test — IDE Testing sidebar can run tests.');
+    }
+
+    // Step 11: Sanity check — list tests.
     if (!$quiet) {
       $this->step('Verifying test suites...');
       $check = new Process(['npx', 'playwright', 'test', '--list'], $playwrightDir);
