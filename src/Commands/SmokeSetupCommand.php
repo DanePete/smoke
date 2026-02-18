@@ -345,21 +345,7 @@ echo "  Smoke — IDE setup"
 echo "  ─────────────────"
 echo ""
 
-# 1. Ensure container is ready (browsers, config, smoke_bot). Safe to run every time; skips what's done.
-if command -v ddev >/dev/null 2>&1; then
-  echo "  Ensuring DDEV container is set up..."
-  ddev exec drush smoke:setup --silent 2>/dev/null || true
-  echo "  Copying Playwright config to project root..."
-  ddev exec drush smoke:copy-to-project 2>/dev/null || true
-fi
-
-# 2. Global Playwright on host (one install per machine, shared across projects). Skips if already installed.
-if [ -f web/modules/contrib/smoke/scripts/global-setup.sh ]; then
-  bash web/modules/contrib/smoke/scripts/global-setup.sh
-fi
-
-# 3. Project npm deps so IDE can discover and run tests.
-echo "  Installing project npm dependencies..."
+# Activate nvm / .nvmrc early so the correct Node is used for every step.
 if [ -f .nvmrc ]; then
   NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -379,6 +365,22 @@ if [ -f .nvmrc ]; then
     done
   fi
 fi
+
+# 1. Ensure container is ready (browsers, config, smoke_bot). Safe to run every time; skips what's done.
+if command -v ddev >/dev/null 2>&1; then
+  echo "  Ensuring DDEV container is set up..."
+  ddev exec drush smoke:setup --silent 2>/dev/null || true
+  echo "  Copying Playwright config to project root..."
+  ddev exec drush smoke:copy-to-project 2>/dev/null || true
+fi
+
+# 2. Global Playwright on host (one install per machine, shared across projects). Skips if already installed.
+if [ -f web/modules/contrib/smoke/scripts/global-setup.sh ]; then
+  bash web/modules/contrib/smoke/scripts/global-setup.sh
+fi
+
+# 3. Project npm deps so IDE can discover and run tests.
+echo "  Installing project npm dependencies..."
 npm install --silent 2>/dev/null || npm install
 
 echo ""

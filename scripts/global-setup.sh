@@ -35,6 +35,27 @@ if ! command -v node &> /dev/null; then
 fi
 
 NODE_VERSION=$(node -v)
+NODE_MAJOR=$(echo "${NODE_VERSION}" | sed 's/^v//' | cut -d. -f1)
+
+if [ "${NODE_MAJOR}" -lt 18 ] 2>/dev/null; then
+  echo "  ❌ Node.js ${NODE_VERSION} is too old. Playwright requires Node 18+."
+  echo ""
+  if [ -f .nvmrc ]; then
+    WANT=$(cat .nvmrc | tr -d ' \n')
+    echo "  This project's .nvmrc specifies Node ${WANT}."
+  fi
+  echo ""
+  echo "  Fix with nvm:"
+  echo "    nvm install 22"
+  echo "    nvm use 22"
+  echo "    nvm alias default 22"
+  echo ""
+  echo "  Then re-run:"
+  echo "    ddev smoke-ide-setup"
+  echo ""
+  exit 1
+fi
+
 echo "  ✓ Node.js ${NODE_VERSION}"
 
 # Check for npm
