@@ -21,14 +21,12 @@ use Symfony\Component\HttpFoundation\RequestStack;
 final class DashboardController extends ControllerBase {
 
   public function __construct(
-    RequestStack $requestStack,
+    private readonly RequestStack $requestStack,
     private readonly TestRunner $testRunner,
     private readonly ModuleDetector $moduleDetector,
     private readonly CsrfTokenGenerator $csrfTokenGenerator,
     private readonly ContainerInterface $container,
-  ) {
-    parent::__construct($requestStack);
-  }
+  ) {}
 
   /**
    * {@inheritdoc}

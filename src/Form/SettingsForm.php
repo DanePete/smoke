@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\smoke\Service\ModuleDetector;
@@ -25,9 +26,10 @@ final class SettingsForm extends ConfigFormBase {
    */
   public function __construct(
     ConfigFactoryInterface $configFactory,
+    ?TypedConfigManagerInterface $typedConfigManager,
     ModuleDetector $moduleDetector,
   ) {
-    parent::__construct($configFactory);
+    parent::__construct($configFactory, $typedConfigManager);
     $this->moduleDetector = $moduleDetector;
   }
 
@@ -37,6 +39,7 @@ final class SettingsForm extends ConfigFormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('config.factory'),
+      $container->get('config.typed'),
       $container->get('smoke.module_detector'),
     );
   }
