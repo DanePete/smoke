@@ -20,6 +20,9 @@ if (existsSync(configPath)) {
 const baseURL = smokeConfig.baseUrl || process.env.DDEV_PRIMARY_URL || 'https://localhost';
 const timeout = smokeConfig.timeout || 10_000;
 
+// All suites (built-in and external) run from ./suites.
+// External suites are copied into suites/ by TestRunner before each run
+// and cleaned up afterward, so Playwright always resolves from one tree.
 export default defineConfig({
   testDir: './suites',
   timeout,
@@ -30,7 +33,7 @@ export default defineConfig({
   workers: 1,
 
   reporter: [
-    ['list'],  // Console output for IDE and terminal.
+    ['list'],
     ['json', { outputFile: 'results.json' }],
   ],
 
@@ -39,23 +42,15 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        launchOptions: {
-          headless: true,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-          ],
-        },
-      },
+    ...devices['Desktop Chrome'],
+    launchOptions: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
     },
-  ],
+  },
 });

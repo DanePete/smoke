@@ -8,7 +8,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\State\StateInterface;
 use Drupal\smoke\Service\JunitReporter;
-use Drupal\smoke\Service\ModuleDetector;
+use Drupal\smoke\Service\SuiteDiscovery;
 use Drupal\smoke\Service\TestRunner;
 use Drupal\smoke\SmokeConstants;
 use Drush\Attributes as CLI;
@@ -27,8 +27,8 @@ final class SmokeRunCommand extends DrushCommands {
    *
    * @param \Drupal\smoke\Service\TestRunner $testRunner
    *   The test runner service.
-   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
-   *   The module detector service.
+   * @param \Drupal\smoke\Service\SuiteDiscovery $suiteDiscovery
+   *   The suite discovery service.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   The config factory.
    * @param \Drupal\Core\State\StateInterface $state
@@ -40,7 +40,7 @@ final class SmokeRunCommand extends DrushCommands {
    */
   public function __construct(
     private readonly TestRunner $testRunner,
-    private readonly ModuleDetector $moduleDetector,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly StateInterface $state,
     private readonly JunitReporter $junitReporter,
@@ -55,7 +55,7 @@ final class SmokeRunCommand extends DrushCommands {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
-      $container->get('smoke.module_detector'),
+      $container->get('smoke.suite_discovery'),
       $container->get('config.factory'),
       $container->get('state'),
       $container->get('smoke.junit_reporter'),
@@ -139,8 +139,8 @@ final class SmokeRunCommand extends DrushCommands {
     $siteName = (string) $siteConfig->get('name');
     $baseUrl = getenv('DDEV_PRIMARY_URL') ?: 'unknown';
     $isSetup = $this->testRunner->isSetup();
-    $detected = $this->moduleDetector->detect();
-    $labels = ModuleDetector::suiteLabels();
+    $detected = $this->suiteDiscovery->getSuites();
+    $labels = $this->suiteDiscovery->getLabels();
     $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $lastResults = $this->testRunner->getLastResults();
@@ -348,10 +348,10 @@ final class SmokeRunCommand extends DrushCommands {
     $this->io()->newLine();
 
     // Determine which suites to run.
-    $detected = $this->moduleDetector->detect();
+    $detected = $this->suiteDiscovery->getSuites();
     $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
-    $labels = ModuleDetector::suiteLabels();
+    $labels = $this->suiteDiscovery->getLabels();
 
     $suitesToRun = [];
     foreach ($detected as $id => $info) {

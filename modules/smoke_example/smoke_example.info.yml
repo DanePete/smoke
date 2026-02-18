@@ -1,0 +1,7 @@
+name: 'Smoke Example'
+type: module
+description: 'Example Smoke test suite. Enable to see how to add your own Playwright suites via smoke.suites.yml.'
+package: Development
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - smoke:smoke

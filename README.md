@@ -53,13 +53,21 @@ ddev drush en smoke -y
 
 ## Setup
 
-From your project root (where `.ddev/` lives), run setup inside DDEV:
+**Option A — One command (agency / multi-project):** From your project root, run on your **host** (not inside DDEV):
+
+```bash
+ddev smoke-ide-setup
+```
+
+This ensures the DDEV container is set up, installs global Playwright once per machine (shared across projects), copies config to the project, and installs npm deps for the IDE. Run it once per new machine and once per new project. Later projects only need the copy + npm step.
+
+**Option B — Container only:** From your project root, run inside DDEV:
 
 ```bash
 ddev drush smoke:setup
 ```
 
-This installs Playwright, Chromium, and test config in one go. Alternatively you can run the host setup script: `bash web/modules/contrib/smoke/scripts/host-setup.sh`.
+Then run `ddev smoke-ide-setup` on your host once for IDE + optional global Playwright.
 
 ### What setup does
 
@@ -74,7 +82,7 @@ This installs Playwright, Chromium, and test config in one go. Alternatively you
 9. Copies Playwright suites and config to project root so the VS Code/Cursor extension can discover tests
 10. Installs the host command **`ddev smoke-ide-setup`** — run it once on your host so your IDE can run tests
 11. Verifies all test suites are wired up
-12. Runs global Playwright setup inside the container (script skips if already installed). If you already use global Playwright on your host (`PLAYWRIGHT_BROWSERS_PATH` set), setup shows "Global Playwright already installed (IDE)." Otherwise it shows a **Tip** with the path to run `bash <path>/global-setup.sh` from your project root on your host (you can adjust the path when prompted). See [Agency Setup: Global Playwright](#agency-setup-global-playwright-installation) for details.
+12. Runs global Playwright setup inside the container (script skips if already installed). If you already use global Playwright on your host (`PLAYWRIGHT_BROWSERS_PATH` set), setup shows "Global Playwright already installed (IDE)." Otherwise it shows: **Next: Run ddev smoke-ide-setup on your host once** — that command installs global Playwright and IDE config. See [Agency Setup: Global Playwright](#agency-setup-global-playwright-installation) for details.
 
 If the script appears to hang, it has been updated so the system-deps step no longer waits for input. If you see a warning that system deps could not be installed, run inside the container: `ddev exec "sudo npx playwright install-deps chromium"`. When running with `--silent` (e.g. from the DDEV post-start hook), the webform prompt is skipped and the existing setting is kept.
 

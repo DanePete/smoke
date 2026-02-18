@@ -8,7 +8,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\smoke\Service\ModuleDetector;
+use Drupal\smoke\Service\SuiteDiscovery;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -16,10 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class SettingsForm extends ConfigFormBase {
 
-  /**
-   * The module detector service.
-   */
-  private readonly ModuleDetector $moduleDetector;
+  private readonly SuiteDiscovery $suiteDiscovery;
 
   /**
    * {@inheritdoc}
@@ -27,10 +24,10 @@ final class SettingsForm extends ConfigFormBase {
   public function __construct(
     ConfigFactoryInterface $configFactory,
     ?TypedConfigManagerInterface $typedConfigManager,
-    ModuleDetector $moduleDetector,
+    SuiteDiscovery $suiteDiscovery,
   ) {
     parent::__construct($configFactory, $typedConfigManager);
-    $this->moduleDetector = $moduleDetector;
+    $this->suiteDiscovery = $suiteDiscovery;
   }
 
   /**
@@ -40,7 +37,7 @@ final class SettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('config.typed'),
-      $container->get('smoke.module_detector'),
+      $container->get('smoke.suite_discovery'),
     );
   }
 
@@ -64,14 +61,14 @@ final class SettingsForm extends ConfigFormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $config = $this->config('smoke.settings');
     $enabledSuites = $config->get('suites') ?? [];
-    $labels = ModuleDetector::suiteLabels();
-    $detected = $this->moduleDetector->detect();
+    $labels = $this->suiteDiscovery->getLabels();
+    $detected = $this->suiteDiscovery->getSuites();
 
     // ── Suite toggles ──
     $form['suites'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Test Suites'),
-      '#description' => $this->t('Enable or disable test suites. Auto-detected suites are enabled by default.'),
+      '#description' => $this->t('Enable or disable test suites. Suites are discovered from Smoke and from any module that provides smoke.suites.yml.'),
     ];
 
     foreach ($labels as $id => $label) {
@@ -131,7 +128,7 @@ final class SettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $labels = ModuleDetector::suiteLabels();
+    $labels = $this->suiteDiscovery->getLabels();
     $suites = [];
     foreach (array_keys($labels) as $id) {
       $suites[$id] = (bool) $form_state->getValue($id);

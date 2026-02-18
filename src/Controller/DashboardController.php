@@ -8,7 +8,7 @@ use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Drupal\Component\Utility\Html;
-use Drupal\smoke\Service\ModuleDetector;
+use Drupal\smoke\Service\SuiteDiscovery;
 use Drupal\smoke\Service\TestRunner;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -23,7 +23,7 @@ final class DashboardController extends ControllerBase {
   public function __construct(
     private readonly RequestStack $requestStack,
     private readonly TestRunner $testRunner,
-    private readonly ModuleDetector $moduleDetector,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly CsrfTokenGenerator $csrfTokenGenerator,
     private readonly ContainerInterface $container,
   ) {}
@@ -35,7 +35,7 @@ final class DashboardController extends ControllerBase {
     return new static(
       $container->get('request_stack'),
       $container->get('smoke.test_runner'),
-      $container->get('smoke.module_detector'),
+      $container->get('smoke.suite_discovery'),
       $container->get('csrf_token'),
       $container,
     );
@@ -48,8 +48,8 @@ final class DashboardController extends ControllerBase {
     $isSetup = $this->testRunner->isSetup();
     $lastResults = $this->testRunner->getLastResults();
     $lastRun = $this->testRunner->getLastRunTime();
-    $detected = $this->moduleDetector->detect();
-    $labels = ModuleDetector::suiteLabels();
+    $detected = $this->suiteDiscovery->getSuites();
+    $labels = $this->suiteDiscovery->getLabels();
     $settings = $this->config('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $request = $this->requestStack->getCurrentRequest();
@@ -447,7 +447,7 @@ final class DashboardController extends ControllerBase {
     }
 
     // Validate that the suite ID is known.
-    $knownSuites = array_keys(ModuleDetector::suiteLabels());
+    $knownSuites = array_keys($this->suiteDiscovery->getLabels());
     if (!in_array($suite, $knownSuites, TRUE)) {
       $this->messenger()->addError($this->t('Unknown test suite: @suite', [
         '@suite' => $suite,

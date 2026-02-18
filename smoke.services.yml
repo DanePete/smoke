@@ -6,10 +6,17 @@ services:
       - '@entity_type.manager'
       - '@config.factory'
 
+  smoke.suite_discovery:
+    class: Drupal\smoke\Service\SuiteDiscovery
+    arguments:
+      - '@smoke.module_detector'
+      - '@smoke.yaml_suite_discovery'
+      - '@extension.list.module'
+
   smoke.config_generator:
     class: Drupal\smoke\Service\ConfigGenerator
     arguments:
-      - '@smoke.module_detector'
+      - '@smoke.suite_discovery'
       - '@state'
       - '@config.factory'
       - '@request_stack'
@@ -19,6 +26,7 @@ services:
     class: Drupal\smoke\Service\TestRunner
     arguments:
       - '@smoke.config_generator'
+      - '@smoke.suite_discovery'
       - '@state'
       - '@module_handler'
       - '@file_system'

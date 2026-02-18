@@ -645,8 +645,8 @@ BASH;
   /**
    * Offers to add Composer post-update/install scripts to the project root.
    *
-   * Appends ddev drush cr + ddev drush smoke --run so tests run inside the
-   * container after composer install or composer update. Skips if already present.
+   * Appends ddev drush cr + ddev drush smoke --run so tests run in the
+   * container when you run composer on the host. Skips if already present.
    */
   private function configureComposerScripts(string $projectRoot): void {
     $composerFile = $projectRoot . '/composer.json';
@@ -664,7 +664,6 @@ BASH;
       return;
     }
 
-    // Use ddev drush so tests run inside the container where Playwright is installed.
     $smokeCmd = 'ddev drush smoke --run';
     $crCmd = 'ddev drush cr';
 

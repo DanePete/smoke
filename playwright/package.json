@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Playwright test engine for the Drupal Smoke module.",
+  "exports": {
+    "./helpers": "./src/helpers.ts",
+    "./config": "./src/config-reader.ts"
+  },
   "scripts": {
     "test": "playwright test",
     "test:list": "playwright test --list"

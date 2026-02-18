@@ -3,7 +3,7 @@ services:
     class: Drupal\smoke\Commands\SmokeRunCommand
     arguments:
       - '@smoke.test_runner'
-      - '@smoke.module_detector'
+      - '@smoke.suite_discovery'
       - '@config.factory'
       - '@state'
       - '@smoke.junit_reporter'
@@ -15,7 +15,7 @@ services:
     class: Drupal\smoke\Commands\SmokeSuiteCommand
     arguments:
       - '@smoke.test_runner'
-      - '@smoke.module_detector'
+      - '@smoke.suite_discovery'
       - '@config.factory'
     tags:
       - { name: drush.command }
@@ -24,7 +24,7 @@ services:
     class: Drupal\smoke\Commands\SmokeListCommand
     arguments:
       - '@smoke.test_runner'
-      - '@smoke.module_detector'
+      - '@smoke.suite_discovery'
       - '@config.factory'
     tags:
       - { name: drush.command }

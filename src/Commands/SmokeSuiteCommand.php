@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Commands;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\smoke\Service\ModuleDetector;
+use Drupal\smoke\Service\SuiteDiscovery;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
@@ -22,14 +22,14 @@ final class SmokeSuiteCommand extends DrushCommands {
    *
    * @param \Drupal\smoke\Service\TestRunner $testRunner
    *   The test runner service.
-   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
-   *   The module detector service.
+   * @param \Drupal\smoke\Service\SuiteDiscovery $suiteDiscovery
+   *   The suite discovery service.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   The config factory.
    */
   public function __construct(
     private readonly TestRunner $testRunner,
-    private readonly ModuleDetector $moduleDetector,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
@@ -41,13 +41,13 @@ final class SmokeSuiteCommand extends DrushCommands {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
-      $container->get('smoke.module_detector'),
+      $container->get('smoke.suite_discovery'),
       $container->get('config.factory'),
     );
   }
 
   #[CLI\Command(name: 'smoke:suite')]
-  #[CLI\Argument(name: 'suite', description: 'Suite to run (core_pages, auth, webform, commerce, search, health, sitemap, content, accessibility).')]
+  #[CLI\Argument(name: 'suite', description: 'Suite to run. Built-in: core_pages, auth, webform, commerce, search, health, sitemap, content. Custom suites via smoke.suites.yml.')]
   #[CLI\Help(description: 'Run a single smoke test suite.')]
   #[CLI\Usage(name: 'drush smoke:suite webform', description: 'Run only the webform tests.')]
   #[CLI\Usage(name: 'drush smoke:suite core_pages --target=https://test-mysite.pantheonsite.io', description: 'Test a remote site.')]
@@ -86,7 +86,7 @@ final class SmokeSuiteCommand extends DrushCommands {
       }
     }
 
-    $labels = ModuleDetector::suiteLabels();
+    $labels = $this->suiteDiscovery->getLabels();
     if (!isset($labels[$suite])) {
       $this->io()->error("Unknown suite: {$suite}");
       $this->io()->text('Available suites: ' . implode(', ', array_keys($labels)));
@@ -112,6 +112,21 @@ final class SmokeSuiteCommand extends DrushCommands {
     $this->io()->text('  ───────────────────────────────────────');
     $this->io()->newLine();
 
+    // Show which spec file(s) will run (suite = file or directory of specs).
+    $specPath = $this->suiteDiscovery->getSpecPath($suite);
+    if ($specPath !== NULL) {
+      if (is_dir($specPath)) {
+        $files = glob($specPath . '/*.spec.ts') ?: [];
+        $names = array_map('basename', $files);
+        sort($names);
+        $this->io()->text('  <fg=gray>Specs:</>  ' . implode(', ', $names));
+      }
+      else {
+        $this->io()->text('  <fg=gray>Spec:</>   ' . basename($specPath));
+      }
+      $this->io()->newLine();
+    }
+
     $this->io()->text('  <fg=cyan>⠿</> Running...');
     $this->io()->newLine();
 
@@ -123,7 +138,11 @@ final class SmokeSuiteCommand extends DrushCommands {
       return;
     }
 
-    foreach (($suiteData['tests'] ?? []) as $test) {
+    $tests = $suiteData['tests'] ?? [];
+    if ($tests !== []) {
+      $this->io()->text('  <fg=gray>Tests:</>');
+    }
+    foreach ($tests as $test) {
       $icon = ($test['status'] ?? '') === 'passed' ? '<fg=green>✓</>' : '<fg=red>✕</>';
       $time = number_format(($test['duration'] ?? 0) / 1000, 1) . 's';
       $this->io()->text("  {$icon} {$test['title']}  <fg=gray>{$time}</>");

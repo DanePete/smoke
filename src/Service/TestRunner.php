@@ -16,6 +16,7 @@ final class TestRunner {
 
   public function __construct(
     private readonly ConfigGenerator $configGenerator,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly StateInterface $state,
     private readonly ModuleHandlerInterface $moduleHandler,
     private readonly FileSystemInterface $fileSystem,
@@ -76,10 +77,29 @@ final class TestRunner {
       'npx', 'playwright', 'test',
     ];
 
+    $externalSuiteDir = NULL;
     if ($suite) {
-      // Suite IDs use underscores (core_pages), filenames use dashes.
-      $suiteFile = str_replace('_', '-', $suite);
-      $args[] = 'suites/' . $suiteFile . '.spec.ts';
+      $specPath = $this->suiteDiscovery->getSpecPath($suite);
+      if ($specPath !== NULL) {
+        $isExternal = !str_starts_with($specPath, $playwrightDir);
+        if ($isExternal) {
+          // External suite: copy specs into smoke's suites/ so Playwright
+          // discovers them naturally and imports (../../src/helpers) resolve
+          // from smoke's tree. Cleaned up after the run.
+          $suiteName = str_replace('_', '-', $suite);
+          $externalSuiteDir = $playwrightDir . '/suites/' . $suiteName;
+          $sourceDir = is_dir($specPath) ? $specPath : dirname($specPath);
+          $this->copyDirectory($sourceDir, $externalSuiteDir);
+          $args[] = 'suites/' . $suiteName;
+        }
+        else {
+          $args[] = $specPath;
+        }
+      }
+      else {
+        $suiteFile = str_replace('_', '-', $suite);
+        $args[] = 'suites/' . $suiteFile . '.spec.ts';
+      }
     }
 
     $process = new Process($args, $playwrightDir);
@@ -87,6 +107,11 @@ final class TestRunner {
 
     // Output enabled so launch failures show. Results from JSON file.
     $process->run();
+
+    // Clean up copied external suite.
+    if ($externalSuiteDir !== NULL && is_dir($externalSuiteDir)) {
+      $this->removeDirectory($externalSuiteDir);
+    }
 
     // If process failed and no results, surface stderr (e.g. launch message).
     $resultsFileContent = file_exists($resultsFile)
@@ -112,6 +137,13 @@ final class TestRunner {
     $results = $this->parseResults($output);
     $results['exitCode'] = $process->getExitCode();
     $results['ranAt'] = time();
+
+    // When running a single suite, map all parsed suite data to the requested ID
+    // (Playwright may use describe-block titles or file names; custom/dir suites
+    // may not match). Merge so results['suites'][$suite] exists.
+    if ($suite !== null && $suite !== '' && empty($results['suites'][$suite])) {
+      $results['suites'] = $this->mergeParsedSuitesIntoOne($results['suites'], $suite);
+    }
 
     // Browser launch failure: set results['error'] so run command shows hint.
     $err = $process->getErrorOutput();
@@ -349,6 +381,45 @@ final class TestRunner {
   }
 
   /**
+   * Merges all parsed suite results into a single suite (for single-suite runs).
+   *
+   * When running one suite (file or directory), Playwright may report multiple
+   * suite titles (e.g. describe blocks). Merge them so the requested suite ID
+   * has the combined results.
+   *
+   * @param array<string, array<string, mixed>> $suites
+   *   Parsed suites keyed by resolved/slugified ID.
+   * @param string $targetId
+   *   The requested suite ID to use as the key.
+   *
+   * @return array<string, array<string, mixed>>
+   */
+  private function mergeParsedSuitesIntoOne(array $suites, string $targetId): array {
+    $merged = [
+      'title' => $targetId,
+      'tests' => [],
+      'passed' => 0,
+      'failed' => 0,
+      'skipped' => 0,
+      'duration' => 0,
+      'status' => 'passed',
+    ];
+    foreach ($suites as $data) {
+      $merged['passed'] += (int) ($data['passed'] ?? 0);
+      $merged['failed'] += (int) ($data['failed'] ?? 0);
+      $merged['skipped'] += (int) ($data['skipped'] ?? 0);
+      $merged['duration'] += (int) ($data['duration'] ?? 0);
+      foreach (($data['tests'] ?? []) as $test) {
+        $merged['tests'][] = $test;
+      }
+    }
+    if ($merged['failed'] > 0) {
+      $merged['status'] = 'failed';
+    }
+    return [$targetId => $merged];
+  }
+
+  /**
    * Recalculates summary from suite data.
    */
   private function recalculateSummary(array &$results): void {
@@ -402,6 +473,52 @@ final class TestRunner {
    */
   private function getPlaywrightDir(): string {
     return $this->configGenerator->getModulePath() . '/playwright';
+  }
+
+  /**
+   * Recursively copies a directory.
+   */
+  private function copyDirectory(string $source, string $dest): void {
+    if (!is_dir($dest)) {
+      mkdir($dest, 0755, TRUE);
+    }
+    $iterator = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+      \RecursiveIteratorIterator::SELF_FIRST,
+    );
+    foreach ($iterator as $item) {
+      $target = $dest . '/' . $iterator->getSubPathname();
+      if ($item->isDir()) {
+        if (!is_dir($target)) {
+          mkdir($target, 0755, TRUE);
+        }
+      }
+      else {
+        copy($item->getPathname(), $target);
+      }
+    }
+  }
+
+  /**
+   * Recursively removes a directory.
+   */
+  private function removeDirectory(string $dir): void {
+    if (!is_dir($dir)) {
+      return;
+    }
+    $iterator = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+      \RecursiveIteratorIterator::CHILD_FIRST,
+    );
+    foreach ($iterator as $item) {
+      if ($item->isDir()) {
+        @rmdir($item->getPathname());
+      }
+      else {
+        @unlink($item->getPathname());
+      }
+    }
+    @rmdir($dir);
   }
 
 }

@@ -141,18 +141,22 @@ class YamlSuiteDiscovery {
    */
   protected function normalizeDefinition(string $id, array $definition, string $provider, string $modulePath): array {
     $specFile = str_replace('_', '-', $id) . '.spec.ts';
+    $specDir = str_replace('_', '-', $id);
 
-    // Determine spec path.
+    // Determine spec path: file or directory (suite = collection of tests).
     $specPath = NULL;
     if (!empty($definition['spec_path'])) {
-      // Custom spec path relative to module.
-      $specPath = DRUPAL_ROOT . '/' . $modulePath . '/' . $definition['spec_path'];
+      $candidate = DRUPAL_ROOT . '/' . $modulePath . '/' . $definition['spec_path'];
+      if (file_exists($candidate)) {
+        $specPath = $candidate;
+      }
     }
-    else {
-      // Default locations.
+    if ($specPath === NULL) {
       $candidates = [
         DRUPAL_ROOT . '/' . $modulePath . '/playwright/suites/' . $specFile,
         DRUPAL_ROOT . '/' . $modulePath . '/tests/playwright/' . $specFile,
+        DRUPAL_ROOT . '/' . $modulePath . '/playwright/suites/' . $specDir,
+        DRUPAL_ROOT . '/' . $modulePath . '/tests/playwright/' . $specDir,
       ];
       foreach ($candidates as $candidate) {
         if (file_exists($candidate)) {

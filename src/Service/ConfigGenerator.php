@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 final class ConfigGenerator {
 
   public function __construct(
-    private readonly ModuleDetector $moduleDetector,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly StateInterface $state,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly RequestStack $requestStack,
@@ -41,7 +41,7 @@ final class ConfigGenerator {
     $customUrls = $settings->get('custom_urls') ?? [];
     $timeout = (int) ($settings->get('timeout') ?? 30000);
 
-    $detected = $this->moduleDetector->detect();
+    $detected = $this->suiteDiscovery->getSuites();
 
     // Use the target URL if provided, otherwise resolve from DDEV / request.
     $isRemote = $targetUrl !== NULL && $targetUrl !== '';

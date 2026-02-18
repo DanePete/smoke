@@ -1,0 +1,5 @@
+smoke_example:
+  label: 'Example'
+  description: 'Example Playwright tests. Copy this module as a starting point for your own suite.'
+  icon: puzzle
+  weight: 99

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\smoke\Commands;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\smoke\Service\ModuleDetector;
+use Drupal\smoke\Service\SuiteDiscovery;
 use Drupal\smoke\Service\TestRunner;
 use Drush\Attributes as CLI;
 use Drush\Commands\DrushCommands;
@@ -21,14 +21,14 @@ final class SmokeListCommand extends DrushCommands {
    *
    * @param \Drupal\smoke\Service\TestRunner $testRunner
    *   The test runner service.
-   * @param \Drupal\smoke\Service\ModuleDetector $moduleDetector
-   *   The module detector service.
+   * @param \Drupal\smoke\Service\SuiteDiscovery $suiteDiscovery
+   *   The suite discovery service.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   The config factory.
    */
   public function __construct(
     private readonly TestRunner $testRunner,
-    private readonly ModuleDetector $moduleDetector,
+    private readonly SuiteDiscovery $suiteDiscovery,
     private readonly ConfigFactoryInterface $configFactory,
   ) {
     parent::__construct();
@@ -40,7 +40,7 @@ final class SmokeListCommand extends DrushCommands {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('smoke.test_runner'),
-      $container->get('smoke.module_detector'),
+      $container->get('smoke.suite_discovery'),
       $container->get('config.factory'),
     );
   }
@@ -51,8 +51,8 @@ final class SmokeListCommand extends DrushCommands {
    * Lists detected test suites and their status.
    */
   public function list(): void {
-    $detected = $this->moduleDetector->detect();
-    $labels = ModuleDetector::suiteLabels();
+    $detected = $this->suiteDiscovery->getSuites();
+    $labels = $this->suiteDiscovery->getLabels();
     $settings = $this->configFactory->get('smoke.settings');
     $enabledSuites = $settings->get('suites') ?? [];
     $lastResults = $this->testRunner->getLastResults();
