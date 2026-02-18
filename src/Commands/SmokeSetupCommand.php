@@ -333,25 +333,39 @@ YAML;
       }
       $hostScript = <<<'BASH'
 #!/usr/bin/env bash
-## Description: Install npm deps on host so VS Code/Cursor Playwright extension can discover tests
+## Description: One-command Smoke setup — container, global Playwright, and IDE. Run once per machine (global) and once per project (config).
 ## Usage: smoke-ide-setup
 ## Example: ddev smoke-ide-setup
 
 set -e
 cd "${DDEV_APPROOT:-.}"
-# Copy Playwright suites + config from smoke module to project root (so IDE finds tests).
+
+echo ""
+echo "  Smoke — IDE setup"
+echo "  ─────────────────"
+echo ""
+
+# 1. Ensure container is ready (browsers, config, smoke_bot). Safe to run every time; skips what's done.
 if command -v ddev >/dev/null 2>&1; then
+  echo "  Ensuring DDEV container is set up..."
+  ddev exec drush smoke:setup --silent 2>/dev/null || true
+  echo "  Copying Playwright config to project root..."
   ddev exec drush smoke:copy-to-project 2>/dev/null || true
 fi
-# Use Node from .nvmrc so npm install runs with Node 18+ (required by Playwright/Vite/etc).
-# DDEV host commands often run without nvm in PATH, so set PATH explicitly if needed.
+
+# 2. Global Playwright on host (one install per machine, shared across projects). Skips if already installed.
+if [ -f web/modules/contrib/smoke/scripts/global-setup.sh ]; then
+  bash web/modules/contrib/smoke/scripts/global-setup.sh
+fi
+
+# 3. Project npm deps so IDE can discover and run tests.
+echo "  Installing project npm dependencies..."
 if [ -f .nvmrc ]; then
   NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
   if [ -s "$NVM_DIR/nvm.sh" ]; then
     . "$NVM_DIR/nvm.sh"
     nvm use 2>/dev/null || true
   fi
-  # If nvm use didn't run (e.g. non-interactive), prepend nvm's node for .nvmrc version
   NODE_VER=$(cat .nvmrc | tr -d ' \n' | head -1)
   if [ -n "$NODE_VER" ]; then
     for dir in "$NVM_DIR/versions/node" "$HOME/.nvm/versions/node"; do
@@ -365,13 +379,19 @@ if [ -f .nvmrc ]; then
     done
   fi
 fi
-npm install
-echo "Done. Reload the IDE window (Developer: Reload Window) if the Testing sidebar does not show tests."
+npm install --silent 2>/dev/null || npm install
+
+echo ""
+echo "  ✓ Smoke is ready."
+echo ""
+echo "  Run tests:     ddev drush smoke --run"
+echo "  In VS Code:    Open the Testing sidebar (beaker icon) to run tests from the IDE."
+echo ""
 BASH;
       file_put_contents($hostCommandPath, $hostScript);
       chmod($hostCommandPath, 0755);
       if (!$quiet) {
-        $this->ok('Host command installed — run <options=bold>ddev smoke-ide-setup</> once on your host for the IDE.');
+        $this->ok('Host command installed — run <options=bold>ddev smoke-ide-setup</> on your host once (container + global Playwright + IDE).');
       }
     }
 
@@ -497,46 +517,20 @@ BASH;
   }
 
   /**
-   * Shows a tip about global Playwright installation for IDE (can show each setup).
+   * Shows a one-line next step for IDE + global Playwright (no prompt, no path).
    *
    * @param string $playwrightDir
    *   Path to the Playwright directory.
    */
   private function showAgencyTip(string $playwrightDir): void {
-    // Check if using global Playwright (environment variable set).
     $globalPath = getenv('PLAYWRIGHT_BROWSERS_PATH');
     if ($globalPath && is_dir($globalPath)) {
       $this->io()->newLine();
       $this->io()->text('  <fg=green>✓</> <fg=gray>Global Playwright already installed (IDE).</>');
       return;
     }
-
-    // Show the tip (optional: same script on your Mac for IDE). Path relative to project root for host.
-    $projectRoot = dirname(DRUPAL_ROOT);
-    $modulePath = $this->configGenerator->getModulePath();
-    $realProject = realpath($projectRoot);
-    $realModule = realpath($modulePath);
-    if ($realProject && $realModule && str_starts_with($realModule, $realProject)) {
-      $scriptRel = str_replace([$realProject . DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR], ['', '/'], $realModule) . '/scripts/global-setup.sh';
-    }
-    else {
-      $scriptRel = 'web/modules/contrib/smoke/scripts/global-setup.sh';
-    }
-    if ($this->input()->isInteractive()) {
-      $answer = $this->io()->ask(
-        '  Path to global-setup.sh from your project root (press Enter to use default)',
-        $scriptRel,
-      );
-      $raw = is_string($answer) ? trim($answer) : '';
-      // Only use answer as path if it looks like a path (contains /); otherwise keep default.
-      if ($raw !== '' && str_contains($raw, '/')) {
-        $scriptRel = $raw;
-      }
-    }
     $this->io()->newLine();
-    $this->io()->text('  <fg=cyan;options=bold>Tip: For IDE on your Mac?</>');
-    $this->io()->text('  <fg=gray>From your project root on your host:</>');
-    $this->io()->text("  <options=bold>bash {$scriptRel}</>");
+    $this->io()->text('  <fg=cyan>Next:</> Run <options=bold>ddev smoke-ide-setup</> on your host once — installs global Playwright and IDE config.');
   }
 
   /**
@@ -729,26 +723,80 @@ BASH;
   }
 
   /**
+   * Fixes expired Sury PHP apt repo key so apt-get update can run.
+   *
+   * When DDEV (or similar) has packages.sury.org with an expired GPG key,
+   * apt update fails and Playwright install-deps cannot install deps. This
+   * installs the official keyring and re-adds the repo so apt works again.
+   */
+  private function fixSuryAptKey(string $playwrightDir): void {
+    $fix = new Process(
+      [
+        'sudo', 'bash', '-c',
+        'mv /etc/apt/sources.list.d/php.list /etc/apt/sources.list.d/php.list.bak 2>/dev/null || true; '
+        . 'apt-get update -qq && '
+        . 'apt-get install -y lsb-release ca-certificates curl && '
+        . 'curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb && '
+        . 'dpkg -i /tmp/debsuryorg-archive-keyring.deb && '
+        . 'echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list && '
+        . 'apt-get update -qq',
+      ],
+      $playwrightDir,
+    );
+    $fix->setTimeout(120);
+    $fix->run();
+  }
+
+  /**
    * Installs Chromium system dependencies with fallback strategies.
    *
    * First tries `npx playwright install-deps chromium`. If that fails (common
-   * when DDEV's apt repo keys are expired), falls back to installing the
-   * required packages directly via apt-get.
+   * when DDEV's apt repo keys are expired), tries fixing the Sury key and
+   * retrying, then falls back to installing the required packages directly
+   * via apt-get.
    *
    * @return bool
    *   TRUE if dependencies were installed successfully.
    */
   private function installSystemDeps(string $playwrightDir, bool $quiet): bool {
     // Strategy 1: Official Playwright install-deps command.
+    $forceSuryFix = (bool) getenv('SMOKE_FORCE_SURY_FIX');
     $installDeps = new Process(
       ['sudo', 'env', 'DEBIAN_FRONTEND=noninteractive', 'npx', 'playwright', 'install-deps', 'chromium'],
       $playwrightDir,
     );
     $installDeps->setTimeout(120);
+    if (!$forceSuryFix) {
+      $installDeps->run();
+      if ($installDeps->isSuccessful()) {
+        if (!$quiet) {
+          $this->ok('System dependencies installed.');
+        }
+        return TRUE;
+      }
+    }
+
+    // Log failure for diagnosis (e.g. Sury apt key issues).
+    if (!$forceSuryFix) {
+      if (getenv('SMOKE_DEBUG_SETUP')) {
+        $projectRoot = dirname(DRUPAL_ROOT);
+        $logLine = date('c') . " install-deps exit=" . $installDeps->getExitCode() . "\n--- stderr ---\n" . $installDeps->getErrorOutput() . "\n--- stdout ---\n" . $installDeps->getOutput() . "\n";
+        @file_put_contents($projectRoot . '/.smoke-setup-debug.log', $logLine, FILE_APPEND);
+      }
+      if (!$quiet) {
+        $this->io()->text('    <fg=gray>(install-deps failed, exit ' . $installDeps->getExitCode() . '; set SMOKE_DEBUG_SETUP=1 and re-run to log details)</>');
+      }
+    }
+
+    // Strategy 1b: On any install-deps failure, try fixing expired Sury apt key and retry (apt error may not appear in captured output).
+    if (!$quiet) {
+      $this->io()->text('    <fg=yellow>Playwright install-deps failed, fixing Sury apt key (if needed) and retrying...</>');
+    }
+    $this->fixSuryAptKey($playwrightDir);
     $installDeps->run();
     if ($installDeps->isSuccessful()) {
       if (!$quiet) {
-        $this->ok('System dependencies installed.');
+        $this->ok('System dependencies installed (after apt key fix).');
       }
       return TRUE;
     }
