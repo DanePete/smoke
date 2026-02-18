@@ -294,7 +294,7 @@ YAML;
       $this->configureComposerScripts($projectRoot);
     }
 
-    // Step 10: Ensure project root has @playwright/test so the IDE extension can discover tests.
+    // Step 10: Ensure project root has @playwright/test (container) so Drush can run tests.
     $npmInstall = new Process(
       ['npm', 'install', '--save-dev', '@playwright/test'],
       $projectRoot,
@@ -302,7 +302,39 @@ YAML;
     $npmInstall->setTimeout(120);
     $npmInstall->run();
     if ($npmInstall->isSuccessful() && !$quiet) {
-      $this->ok('Project root has @playwright/test — IDE Testing sidebar can run tests.');
+      $this->ok('Project root has @playwright/test (container).');
+    }
+
+    // Step 10b: When DDEV, install host command so the user can run npm on the host for the IDE.
+    $hostCommandDir = $projectRoot . '/.ddev/commands/host';
+    $hostCommandPath = $hostCommandDir . '/smoke-ide-setup';
+    if ($isDdev && is_dir($projectRoot . '/.ddev')) {
+      if (!is_dir($hostCommandDir)) {
+        mkdir($hostCommandDir, 0755, TRUE);
+      }
+      $hostScript = <<<'BASH'
+#!/usr/bin/env bash
+## Description: Install npm deps on host so VS Code/Cursor Playwright extension can discover tests
+## Usage: smoke-ide-setup
+## Example: ddev smoke-ide-setup
+
+set -e
+cd "${DDEV_APPROOT:-.}"
+if [ -f .nvmrc ]; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+    nvm use
+  fi
+fi
+npm install
+echo "Done. Reload the IDE window (Developer: Reload Window) if the Testing sidebar does not show tests."
+BASH;
+      file_put_contents($hostCommandPath, $hostScript);
+      chmod($hostCommandPath, 0755);
+      if (!$quiet) {
+        $this->ok('Host command installed — run <options=bold>ddev smoke-ide-setup</> once on your host for the IDE.');
+      }
     }
 
     // Step 11: Sanity check — list tests.
@@ -333,6 +365,10 @@ YAML;
       $this->io()->text('    <options=bold>drush smoke</>               Run all tests');
       $this->io()->text('    <options=bold>drush smoke:list</>          See detected suites');
       $this->io()->text('    <options=bold>drush smoke:suite webform</>  Run one suite');
+      if ($isDdev) {
+        $this->io()->newLine();
+        $this->io()->text('  <fg=cyan>IDE Testing sidebar:</> Run once on your host: <options=bold>ddev smoke-ide-setup</>');
+      }
       $this->io()->newLine();
     }
   }
